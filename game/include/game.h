@@ -28,6 +28,8 @@ class Game {
         
         int m_totalEpisodes;
         int m_currentEpisode;
+
+        int timestep = 0;
         
     public:
         Game();

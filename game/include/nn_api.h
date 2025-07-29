@@ -17,6 +17,8 @@ bool save_nn_model(uint32_t id, uint32_t nn_type, const char* dirname);
 
 uint32_t load_nn_model(const char* dirname, uint32_t nn_type);
 
+uint32_t randomize_weights(uint32_t id, uint32_t nn_type);
+
 #ifdef __cplusplus
 }                           // End extern "C" block
 #endif

@@ -62,6 +62,8 @@ class Organism : public Sprite {
 
         uint32_t getEnergy() const { return energy_lvl; }
 
+        uint32_t getSector(int width, int height);
+
 };
 
 #endif

@@ -44,6 +44,10 @@ class Map {
         void draw_map(SDL_Renderer* renderer);
 
         std::vector<CellType> getVision(int x, int y, Direction facing, int depth, int org_size) const;
+
+        // RND related functions
+        // return vector of food counts and in each sector, 9 sectors in total
+        std::vector<double> getFoodCounts() const;
 };
 
 #endif

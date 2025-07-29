@@ -21,7 +21,10 @@ struct Action {
 };
 
 // daytime reward computation
-float computeReward(State state, Action action);
+double computeReward(State state, Action action, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
+
+double* prepareInputData(State state, bool is_RND = false, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
+
 
 class EpsilonGreedyPolicy {
     private:
@@ -69,11 +72,11 @@ class Trainer {
         double m_discount_factor;
         double m_learning_rate;
 
-        std::map<State, std::map<Action, double>> q_table;
+        /*std::map<State, std::map<Action, double>> q_table;
         std::vector<State> replay_buffer;
         int replay_buffer_size = 1000;
         int replay_buffer_index = 0;
-        int batch_size = 32;
+        int batch_size = 32;*/
 
         int target_nn_update_counter = 0;
 

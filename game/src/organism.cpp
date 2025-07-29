@@ -90,3 +90,9 @@ Direction Organism::getDirection() const { return m_direction; }
 Genome Organism::getGenome() const {
     return m_genome;
 }
+
+uint32_t Organism::getSector(int width, int height) {
+    int sector_x = x / (width / 3);
+    int sector_y = y / (height / 3);
+    return sector_y * 3 + sector_x;
+}

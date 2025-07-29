@@ -32,12 +32,11 @@ Game::Game() : m_currentState(State::MENU), m_totalEpisodes(0), m_currentEpisode
     int y = std::clamp<int>(std::round(distY(gen)), 10, 590);
 
         
-    m_organism = new Organism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, MIN_ORGANISM_SIZE});
+    m_organism = new Organism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, 10});
     //m_map->addOrganism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, MIN_ORGANISM_SIZE});
 
     m_agent = new Agent(m_organism);
     m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model");
-    
 }
 
 Game::~Game() {
@@ -161,11 +160,22 @@ void Game::runEpisodes(int episodes) {
                 int speed = m_organism->getGenome().speed;
                 int newX = x + dx * speed;
                 int newY = y + dy * speed;
+
+                timestep++;
+
+                std::vector<double> food_rates = m_map->getFoodCounts();
+
+                // compute rates food_counts/timestep
+                for (int i = 0; i < food_rates.size(); ++i) {
+                    food_rates[i] = static_cast<double>(food_rates[i] / (timestep + 1));
+                }
+
+                uint32_t sector = m_organism->getSector(m_map->getWidth(), m_map->getHeight());
             
                 // only move if there is no wall at the target
                 if (!m_map->isWall(newX, newY)) {
                     // print check
-                    float reward = computeReward(m_agent->getState(), action);
+                    float reward = computeReward(m_agent->getState(), action, food_rates);
                     // passed reward print check
 
                     running = m_organism->move(dx, dy);
@@ -174,7 +184,7 @@ void Game::runEpisodes(int episodes) {
                 }
                 else {
                     // print check
-                    float reward = computeReward(m_agent->getState(), action);
+                    float reward = computeReward(m_agent->getState(), action, food_rates);
                     // passed reward print check
 
                     running = m_organism->move(0, 0);
@@ -197,13 +207,18 @@ void Game::runEpisodes(int episodes) {
         }
 
         save_nn_model(0, 0, "test_model");
+        // svae rnd predictor model
+        save_nn_model(0, 2, "rnd_models/test_model/predictor");
+        // save rnd target model
+        save_nn_model(0, 3, "rnd_models/test_model/target");
+
         SDL_SetRenderDrawColor(m_renderer, 255, 255, 255, 255);
         SDL_RenderClear(m_renderer);
         SDL_RenderPresent(m_renderer);
 
         SDL_Delay(500);
 
-
+        timestep = 0;
     }
 
     m_currentState = State::MENU;

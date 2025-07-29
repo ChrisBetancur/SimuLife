@@ -1,15 +1,21 @@
 #include <agent.h>
 #include <nn_api.h>
 #include <filesystem>
+#include <stats.h>
+#include <iostream>
+#include <iomanip>
+#include <algorithm>   // for std::clamp
 
 
-float computeReward(State state, Action action) {
+#define RND_DIRECTORY "rnd_models"
+
+double computeExtrinsicReward(State state, Action action) {
     const float WALL_PENALTY = -1.0f;    // Base penalty for wall collision
     const float FOOD_REWARD = 1.0f;      // Base reward for food
-    float reward = 0.0f;
+    double reward = 0.0f;
     bool wall_in_path = false;
     bool food_in_path = false;
-    
+
     // Vision processing with distance weighting
     for (int i = 0; i < state.vision.size(); ++i) {
         // Immediate collision check (current cell)
@@ -53,7 +59,113 @@ float computeReward(State state, Action action) {
         reward += 0.15f * (state.energy_lvl / MAX_ENERGY);  // Energy conservation
     }
 
-    return std::clamp(reward, -1.0f, 1.0f);
+    return std::clamp(reward, -1.0, 1.0);
+}
+
+double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector) {
+
+
+    double* input_data = prepareInputData(state, true, food_rates, organism_sector);
+
+    // print input data
+    std::cout << "->Input data: ";
+    for (int i = 0; i < 11; ++i) {
+        std::cout << input_data[i] << " ";
+    }
+    std::cout << std::endl;
+
+    
+        // Initialize RND predictor neural network
+        //init_nn(25, 4, 20, 4, 1, 2);
+    
+        // Initialize RND target neural network
+        //init_nn(25, 4, 20, 4, 1, 3);
+
+
+    
+
+    // IDs for predictor and target will both be 0 for now
+    uint32_t id = 0;
+    uint32_t nn_type = 2; // RND predictor
+    double* predictor_q_values = predict_nn(id, 2, input_data); 
+
+    // print predictor q values
+    std::cout << "Predictor Q-values: ";
+    for (int i = 0; i < 4; ++i) {
+        std::cout << predictor_q_values[i] << " ";
+    }
+    std::cout << std::endl;
+
+    nn_type = 3; // RND target
+    double* target_q_values = predict_nn(id, 3, input_data);
+
+    double intrinsic_reward = 0.0f;
+
+    // Assuming predictor_q_values and target_q_values are 1D arrays with 4 elements each
+    // Calculate the RND reward as the squared difference between predictor and target Q-values
+    for (int i = 0; i < 4; ++i) {
+        intrinsic_reward += (predictor_q_values[i] - target_q_values[i]) * (predictor_q_values[i] - target_q_values[i]);
+    }
+
+    // print target q values
+    std::cout << "Target Q-values: ";
+    for (int i = 0; i < 4; ++i) {
+        std::cout << target_q_values[i] << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Intrinsic Reward: " << intrinsic_reward << std::endl;
+
+    if (!std::isfinite(intrinsic_reward)) intrinsic_reward = 1e12;
+    intrinsic_reward = std::min(intrinsic_reward, 1e12);
+    intrinsic_reward = std::log1p(intrinsic_reward);
+
+    // print intrinsic reward
+    std::cout << "After clamp Intrinsic Reward: " << intrinsic_reward << std::endl;
+
+
+    double z = stats::peek_z_score(intrinsic_reward);
+
+    stats::update_stats(intrinsic_reward);
+
+    std::cout << std::scientific
+            << std::setprecision(8)
+            << "Normalized Intrinsic Reward: " << z << "\n";
+
+    
+    double extrinsic_reward = computeExtrinsicReward(state, action);
+
+    std::cout << "Extrinsic Reward: " << extrinsic_reward << std::endl;
+
+        double beta = stats::current_beta();
+    std::cout << "Beta: " << beta << std::endl;
+
+    double total_reward = extrinsic_reward + beta * z;
+
+    std::cout << "Total Reward: " << total_reward << std::endl;
+
+    
+    double max_q_value = target_q_values[0];
+    int best_action_index = 0;
+    for (int i = 1; i < 4; ++i) {
+        if (target_q_values[i] > max_q_value) {
+            max_q_value = target_q_values[i];
+            best_action_index = i;
+        }
+    }
+
+    double target = total_reward + 0.9 * max_q_value;
+
+    target_q_values[best_action_index] = target;
+
+
+    train_nn(0, 2, target_q_values);
+
+
+
+    return total_reward;
+
+
 }
 
 
@@ -66,7 +178,26 @@ EpsilonGreedyPolicy::EpsilonGreedyPolicy(double epsilon, double decay_rate, doub
     unif(0.0, 1.0) {
 }
 
-double* prepareInputData(State state) {
+double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {
+
+    if (is_RND) {
+        size_t input_size = 9 + 1 + 1; // 9 represents food eating rates, 1 for energy level total, sector_organism = 11 inputs
+        double* input_data = new double[input_size];  // Allocate as a single array
+
+        input_data[0] = organism_sector;
+
+        input_data[2] = static_cast<double>(state.energy_lvl);
+
+        // Add food eating rates
+        for (size_t i = 0; i < food_rates.size(); ++i) {
+            input_data[3 + i] = food_rates[i]; // Assuming food_rates is a vector of size 9
+        }
+
+
+        return input_data;  // Return the prepared input data
+
+    }
+
     size_t input_size = 4 + 1 + MAX_ORGANISM_VISION_DEPTH * 4; // 4 inputs represent one cell, one hot encode each cell
     double* input_data = new double[input_size];  // Allocate as a single array
 
@@ -101,6 +232,8 @@ double* prepareInputData(State state) {
             input_data[5 + i + 3] = 1.0; // One-hot encoding for ORGANISM
         }
     }
+
+    return input_data;
     
 }
         
@@ -121,7 +254,7 @@ Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State st
 
 
         // Prepare input data for the neural network
-        double* input_data = prepareInputData(state);
+        double* input_data = prepareInputData(state, false, {}, 0);
 
         double* q_values = predict_nn(id, nn_type, input_data); // batch size should be 1 therefore we only expect 1 sample output
 
@@ -201,14 +334,10 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     m_map(map),
     m_discount_factor(discount_factor),
     m_learning_rate(learning_rate) {
-    // Initialize Q-table and replay buffer
-    q_table = std::map<State, std::map<Action, double>>();
-    replay_buffer = std::vector<State>();
-    replay_buffer.reserve(replay_buffer_size);
-
     // if model path does not exist, create directory and init nn
     if (!std::filesystem::exists(model_path) || model_path == "") {
         std::filesystem::create_directories(model_path);
+        // Initialize online neural network with default parameters
         init_nn(25, 4, 20, 4, 1, 0); // 20 neurons for the vision alone since we have 5 cells in the vision and each cell has 4 possible states
     }
     else {
@@ -216,11 +345,48 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
 
         uint32_t id = load_nn_model(model_path_cstr, 0);
     }
-    // Initialize neural network
-    
+    // Initialize target neural network
     init_nn(25, 4, 20, 4, 1, 1);
     // copy the online nn to the target nn
     update_target_nn(0, 0);
+
+    std::string full_target_path = std::string(RND_DIRECTORY)
+                             + "/" 
+                             + model_path 
+                             + "/target";
+
+    std::string full_predictor_path = std::string(RND_DIRECTORY)
+                             + "/" 
+                             + model_path 
+                             + "/predictor";
+
+
+    if (!std::filesystem::exists(full_predictor_path)) {
+        //print check
+        std::cout << "Initializing RND predictor neural network" << std::endl;
+        // Initialize RND predictor neural network
+        init_nn(25, 4, 20, 4, 1, 2);
+    }
+    else {
+        std::cout << "Loading RND predictor neural network from: " << full_predictor_path << std::endl;
+        const char* model_path_cstr = full_predictor_path.c_str();
+        uint32_t id = load_nn_model(model_path_cstr, 2);
+    }
+
+    if (!std::filesystem::exists(full_target_path)) {
+
+        // Initialize RND target neural network
+        init_nn(25, 4, 20, 4, 1, 3);
+        randomize_weights(0, 3); // Randomize weights for the target network
+    }
+    else {
+        const char* model_path_cstr = full_target_path.c_str();
+        // print check
+        std::cout << "Loading RND target neural network from: " << model_path_cstr << std::endl;
+        uint32_t id = load_nn_model(model_path_cstr, 3);
+    }
+
+    //exit(1);
 }
 
 void Trainer::learn(State state, Action action, float reward) {
@@ -233,7 +399,7 @@ void Trainer::learn(State state, Action action, float reward) {
     }
 
     // Prepare input data for the neural network
-    double* input_data = prepareInputData(state);
+    double* input_data = prepareInputData(state, false, {}, 0);
 
     double* q_values = predict_nn(0, 1, input_data); // batch size should be 1 therefore we only expect 1 sample output
 

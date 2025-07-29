@@ -8,13 +8,18 @@ Map::Map(int w, int h) : width(w), height(h) {
 
 
     grid = new Sprite**[height];
+
+    int p = 15; // percentage of food in the map
+    int threshold = int( (p/100.0) * 10000 );
+
+
     for (int i = 0; i < height; ++i) {
         grid[i] = new Sprite*[width];
         for (int j = 0; j < width; ++j) {
             if (i == 0 || i == height - 1 || j == 0 || j == width - 1) {
                 grid[i][j] = new Wall(j, i); // Set borders as walls
             }
-            else if (distrib(gen) < 2) { // Randomly place food
+            else if (distrib(gen) < threshold) { // Randomly place food
                 grid[i][j] = new Food(j, i);
                 food_count++;
             }
@@ -264,4 +269,27 @@ std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, 
     }
 
     return cells;
+}
+
+std::vector<double> Map::getFoodCounts() const {
+    std::vector<double> food_counts; // 3x3 grid around the organism
+
+    food_counts.resize(9, 0); // Initialize with 0s
+
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            // given the width and height of the map, calculate the sector
+            int sector_x = j / (width / 3);
+            int sector_y = i / (height / 3);
+            int sector_index = sector_y * 3 + sector_x;
+            
+            if (grid[i][j] != nullptr && grid[i][j]->getType() == FOOD) {
+                food_counts[sector_index]++;
+            }
+
+        }
+    }
+
+
+    return food_counts;
 }
