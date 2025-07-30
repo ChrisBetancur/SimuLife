@@ -9,7 +9,7 @@ Map::Map(int w, int h) : width(w), height(h) {
 
     grid = new Sprite**[height];
 
-    int p = 15; // percentage of food in the map
+    int p = 20; // percentage of food in the map
     int threshold = int( (p/100.0) * 10000 );
 
 
@@ -19,7 +19,7 @@ Map::Map(int w, int h) : width(w), height(h) {
             if (i == 0 || i == height - 1 || j == 0 || j == width - 1) {
                 grid[i][j] = new Wall(j, i); // Set borders as walls
             }
-            else if (distrib(gen) < threshold) { // Randomly place food
+            else if (distrib(gen) < 100) { // Randomly place food
                 grid[i][j] = new Food(j, i);
                 food_count++;
             }
@@ -51,7 +51,7 @@ void Map::reset() {
             if (i == 0 || i == height - 1 || j == 0 || j == width - 1) {
                 grid[i][j] = new Wall(j, i); // Set borders as walls
             }
-            else if (distrib(gen) < 2) { // Randomly place food
+            else if (distrib(gen) < 6) { // Randomly place food
                 grid[i][j] = new Food(j, i);
                 food_count++;
             }

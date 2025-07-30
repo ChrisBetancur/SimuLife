@@ -2,7 +2,7 @@
 CXX := g++
 
 # Compiler flags
-CXXFLAGS := -std=c++17 -Wall -Iinclude -I$(shell brew --prefix armadillo)/include
+CXXFLAGS := -std=c++17 -Wall -g -O0 -Iinclude -I$(shell brew --prefix armadillo)/include
 
 # Linker flags
 LDFLAGS := -L$(shell brew --prefix armadillo)/lib -larmadillo

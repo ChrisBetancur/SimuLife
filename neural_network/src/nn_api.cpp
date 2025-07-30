@@ -143,12 +143,31 @@ class NeuralNetwork {
         bool save_model(const std::string& dirname) {
             return write_model(dirname, m_layers, m_input_dim, m_output_dim, m_hidden_dim, m_layers.size(), m_batch_size, m_nn_type);
         }
+
+        uint32_t randomize_weights(std::vector<LayerDense>& layers) {
+            for (auto& layer : layers) {
+                layer.m_weights.randu();
+                layer.m_biases.randu();
+
+                // print check weights and biases
+                std::cout << "Layer Weights: " << layer.m_weights << std::endl;
+                std::cout << "Layer Biases: " << layer.m_biases << std::endl;
+                
+            }
+            //exit(1); // Exit after randomizing weights for debugging purposes
+            return 0; // Return 0 to indicate success
+        }
         
 };
 
 extern "C" {
-    std::vector<std::unique_ptr<NeuralNetwork>> nn_online_instances;
-    std::vector<std::unique_ptr<NeuralNetwork>> nn_target_instances;
+    std::vector<std::unique_ptr<NeuralNetwork>> nn_online_instances; // id 0
+    std::vector<std::unique_ptr<NeuralNetwork>> nn_target_instances; // id 1
+
+    // vector of nn for RND -> predictor
+    std::vector<std::unique_ptr<NeuralNetwork>> nn_rnd_instances; // id 2
+    // vector of nn for RND -> target
+    std::vector<std::unique_ptr<NeuralNetwork>> nn_rnd_target_instances; // id 3
 
     uint32_t init_nn(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
                  uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) {
@@ -174,13 +193,36 @@ extern "C" {
             std::cout << "Target instances: " << nn_target_instances.size() << std::endl;
             return nn_target_instances.size() - 1;
         }
+        else if (nn_type == 2) {
+            nn_rnd_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type));
+            return nn_rnd_instances.size() - 1;
+        } else if (nn_type == 3) {
+            nn_rnd_target_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type));
+            return nn_rnd_target_instances.size() - 1;
+        }
+        else {
+            std::cerr << "Error: Invalid neural network type" << std::endl;
+            exit(1);
+        }
     }
 
     void train_nn(uint32_t id, uint32_t nn_type, double* target_data) {
         if (nn_type == 0) {
             nn_online_instances[id]->train(target_data);
-        } else {
+        }
+        else if (nn_type == 1) {
             nn_target_instances[id]->train(target_data);
+        }
+        else if (nn_type == 2) {
+            nn_rnd_instances[id]->train(target_data);
+        }
+        else if (nn_type == 3) {
+            nn_rnd_target_instances[id]->train(target_data);
+        }
+        // If nn_type is not recognized, print an error message
+        else {
+            std::cerr << "Error: Invalid neural network type" << std::endl;
+            exit(1);
         }
     }
 
@@ -188,8 +230,24 @@ extern "C" {
     double* predict_nn(uint32_t id, uint32_t nn_type, double* input_data) {
         if (nn_type == 0) {
             return nn_online_instances[id]->predict(input_data);
-        } else {
+        }
+        else if (nn_type == 1) {
             return nn_target_instances[id]->predict(input_data);
+        }
+        else if (nn_type == 2) {
+            // print check
+            std::cout << "Predicting with RND predictor neural network" << std::endl;
+            return nn_rnd_instances[id]->predict(input_data);
+        }
+        else if (nn_type == 3) {
+            // print check
+            std::cout << "Predicting with RND target neural network" << std::endl;
+            return nn_rnd_target_instances[id]->predict(input_data);
+        }
+        // If nn_type is not recognized, print an error message
+        else {
+            std::cerr << "Error: Invalid neural network type" << std::endl;
+            exit(1);
         }
     }
 
@@ -206,9 +264,18 @@ extern "C" {
     bool save_nn_model(uint32_t id, uint32_t nn_type, const char* dirname) {
         if (nn_type == 0) {
             return nn_online_instances[id]->save_model(dirname);
-        } else {
+        }
+        else if (nn_type == 1) {
             return nn_target_instances[id]->save_model(dirname);
         }
+        else if (nn_type == 2) {
+            return nn_rnd_instances[id]->save_model(dirname);
+        }
+        else if (nn_type == 3) {
+            return nn_rnd_target_instances[id]->save_model(dirname);
+        }
+        // If nn_type is not recognized, print an error message
+        std::cerr << "Error: Invalid neural network type" << std::endl;
         return false;
     }
 
@@ -221,7 +288,13 @@ extern "C" {
                 throw std::runtime_error("Failed to read model");
             }
 
-            auto& instances = (nn_type == 0) ? nn_online_instances : nn_target_instances;
+            //auto& instances = (nn_type == 0) ? nn_online_instances : nn_target_instances;
+            auto& instances = (nn_type == 0) ? nn_online_instances :
+                              (nn_type == 1) ? nn_target_instances :
+                              (nn_type == 2) ? nn_rnd_instances :
+                              nn_rnd_target_instances;
+            
+            
             instances.push_back(std::make_unique<NeuralNetwork>(
                 meta.input_dim,
                 meta.output_dim,
@@ -247,6 +320,25 @@ extern "C" {
             return UINT32_MAX;
         }
     }
+
+    uint32_t randomize_weights(uint32_t id, uint32_t nn_type) {
+        if (nn_type == 0) {
+            return nn_online_instances[id]->randomize_weights(nn_online_instances[id]->m_layers);
+        }
+        else if (nn_type == 1) {
+            return nn_target_instances[id]->randomize_weights(nn_target_instances[id]->m_layers);
+        }
+        else if (nn_type == 2) {
+            return nn_rnd_instances[id]->randomize_weights(nn_rnd_instances[id]->m_layers);
+        }
+        else if (nn_type == 3) {
+            return nn_rnd_target_instances[id]->randomize_weights(nn_rnd_target_instances[id]->m_layers);
+        }
+        // If nn_type is not recognized, print an error message
+        std::cerr << "Error: Invalid neural network type" << std::endl;
+        exit(1);
+    }
+
 
 
 }
