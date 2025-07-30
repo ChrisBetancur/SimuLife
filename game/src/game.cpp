@@ -128,8 +128,6 @@ void Game::runEpisodes(int episodes) {
         }
     }
 
-    //exit(1);
-
     if (!policySelected) {
         std::cerr << "No policy selected. Please select at least one policy." << std::endl;
         m_currentState = State::MENU;
@@ -202,11 +200,12 @@ void Game::runEpisodes(int episodes) {
                 }
 
                 uint32_t sector = m_organism->getSector(m_map->getWidth(), m_map->getHeight());
+
             
                 // only move if there is no wall at the target
                 if (!m_map->isWall(newX, newY)) {
                     // print check
-                    float reward = computeReward(m_agent->getState(), action, food_rates);
+                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled);
                     // passed reward print check
 
                     running = m_organism->move(dx, dy);
@@ -215,7 +214,7 @@ void Game::runEpisodes(int episodes) {
                 }
                 else {
                     // print check
-                    float reward = computeReward(m_agent->getState(), action, food_rates);
+                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled);
                     // passed reward print check
 
                     running = m_organism->move(0, 0);

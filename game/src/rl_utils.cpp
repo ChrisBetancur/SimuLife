@@ -54,12 +54,17 @@ double computeExtrinsicReward(State state, Action action) {
     return std::clamp(reward, -1.0, 1.0);
 }
 
-double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector) {
+double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd) {
 
 
+    // print check if rnd enabled
+    std::cout << "RND enabled: " << (enable_rnd ? "true" : "false") << std::endl;
+    if (!enable_rnd) {
+        // If RND is not enabled, use the extrinsic reward only
+        return computeExtrinsicReward(state, action);
+    }
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
 
-    
 
     // IDs for predictor and target will both be 0 for now
     uint32_t id = 0;
@@ -134,7 +139,7 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
 
         // Add food eating rates
         for (size_t i = 0; i < food_rates.size(); ++i) {
-            input_data[3 + i] = food_rates[i]; // Assuming food_rates is a vector of size 9
+            input_data[2 + i] = food_rates[i]; // Assuming food_rates is a vector of size 9
         }
 
 

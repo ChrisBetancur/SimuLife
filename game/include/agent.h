@@ -11,10 +11,6 @@
 
 #define TARGET_NN_UPDATE_INTERVAL 1000
 
-double computeReward(State state, Action action, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
-
-double* prepareInputData(State state, bool is_RND = false, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
-
 class Agent {
     private:
         Organism* m_organism;
@@ -25,14 +21,11 @@ class Agent {
         BoltzmannPolicy* m_boltzmann_policy;
 
         PolicyType m_policy_type;
-        bool m_rndEnabled;
 
     public:
         Agent(Organism* organism);
 
         void setPolicy(PolicyType policy_type);
-
-        void enableRND(bool enable);
 
         ~Agent();
         
@@ -69,7 +62,7 @@ class Trainer {
         
         Action chooseAction();
         
-        void learn(State state, Action action, float reward);
+        void learn(State state, Action action, double reward);
 };
 
 

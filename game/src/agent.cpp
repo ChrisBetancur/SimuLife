@@ -41,10 +41,6 @@ void Agent::setPolicy(PolicyType policy_type) {
         throw std::invalid_argument("Unknown policy type");
     }
 }
-/*
-void Agent::enableRND(bool enable) {
-    m_rndEnabled = enable;
-}*/
 
 Agent::~Agent() {  // Destructor to free memory
     if (m_epsilon_policy) {
@@ -79,9 +75,6 @@ Action Agent::chooseAction() {
     }
 }
 
-void Agent::learn(State state, Action action, float reward) {
-    
-}
 
 Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path):
     m_agent(agent),
@@ -91,6 +84,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     // if model path does not exist, create directory and init nn
     if (!std::filesystem::exists(model_path) || model_path == "") {
         std::filesystem::create_directories(model_path);
+        std::cout << "Creating new model directory: " << model_path << std::endl;
         // Initialize online neural network with default parameters
         init_nn(25, 4, 20, 4, 1, 0); // 20 neurons for the vision alone since we have 5 cells in the vision and each cell has 4 possible states
     }
@@ -143,7 +137,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     //exit(1);
 }
 
-void Trainer::learn(State state, Action action, float reward) {
+void Trainer::learn(State state, Action action, double reward) {
 
 
     target_nn_update_counter++;

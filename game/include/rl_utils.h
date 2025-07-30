@@ -28,7 +28,7 @@ enum class PolicyType {
 
 double computeExtrinsicReward(State state, Action action);
 
-double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector);
+double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd = false);
 
 double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector);
 

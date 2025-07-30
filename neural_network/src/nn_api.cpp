@@ -89,7 +89,25 @@ class NeuralNetwork {
 
         double* predict(double* input_data) {
             // convert sample to arma::mat
-            arma::mat inputs(input_data, m_input_dim, m_batch_size, true, true);
+            
+                // Safety checks
+            if (input_data == nullptr) {
+                std::cerr << "Error: input_data is null" << std::endl;
+                return nullptr;
+            }
+            const size_t num_elements = static_cast<size_t>(m_input_dim) * static_cast<size_t>(m_batch_size);
+            if (num_elements == 0) {
+                std::cerr << "Error: input_data has zero elements" << std::endl;
+                return nullptr;
+            }
+
+            // Copy input data to a local vector
+            std::vector<double> input_copy(input_data, input_data + num_elements);
+
+            // Create arma::mat from the copied data
+            arma::mat inputs(input_copy.data(), m_input_dim, m_batch_size, true, true);
+
+            //arma::mat inputs(input_data, m_input_dim, m_batch_size, true, true);
             inputs = inputs.t(); // Transpose to match the expected input shape
 
             for (int i = 0; i < m_layers.size(); ++i) {
