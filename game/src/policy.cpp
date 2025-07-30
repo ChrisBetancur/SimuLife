@@ -1,0 +1,134 @@
+#include <policy.h>
+
+
+Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
+    double n = unif(rng);
+
+    std::vector<Action> actions;
+
+    if (n < m_epsilon) {
+        // print check
+        // Explore: choose a random action
+        std::uniform_int_distribution<int> dist(0, 3);
+        Action action;
+        action.direction = static_cast<Direction>(dist(rng));
+        return action;
+    } 
+    else {
+
+
+        // Prepare input data for the neural network
+        double* input_data = prepareInputData(state, false, {}, 0);
+
+        double* q_values = predict_nn(id, nn_type, input_data); // batch size should be 1 therefore we only expect 1 sample output
+
+        double max_q_value = q_values[0];
+        int best_action_index = 0;
+        for (int i = 1; i < 4; ++i) {
+            if (q_values[i] > max_q_value) {
+                max_q_value = q_values[i];
+                best_action_index = i;
+            }
+        }
+
+
+        Action action;
+        action.direction = static_cast<Direction>(best_action_index);
+
+
+        m_epsilon *= m_decay_rate;
+
+        if (m_epsilon < m_min_epsilon) {
+            m_epsilon = m_min_epsilon;
+        }
+
+        //delete[] q_values;
+
+        return action;
+    }
+    
+}
+
+std::vector<double> BoltzmannPolicy::computeProbabilities(double* q_values) {
+    const int num_actions = 4;
+    std::vector<double> probabilities;
+    probabilities.reserve(num_actions);
+
+    // 1. Find maximum Q-value for numerical stability
+    double max_q = q_values[0];
+    for (int i = 1; i < num_actions; ++i) {
+        if (q_values[i] > max_q) {
+            max_q = q_values[i];
+        }
+    }
+
+    // 2. Compute exponentials and their sum
+    double sum_exp = 0.0;
+    for (int i = 0; i < num_actions; ++i) {
+        // Apply temperature scaling and exponentiate
+        double exp_val = std::exp((q_values[i] - max_q) / m_temperature);
+        probabilities.push_back(exp_val);
+        sum_exp += exp_val;
+    }
+
+    // 3. Normalize to get probabilities
+    for (double& prob : probabilities) {
+        prob /= sum_exp;
+    }
+
+    return probabilities;
+}
+
+    // Select action based on softmax probabilities
+int BoltzmannPolicy::selectAction(double* q_values) {
+    std::vector<double> probs = computeProbabilities(q_values);
+        
+    // Create cumulative distribution
+    std::vector<double> cumulative;
+    cumulative.reserve(probs.size());
+    cumulative.push_back(probs[0]);
+        
+    for (size_t i = 1; i < probs.size(); ++i) {
+        cumulative.push_back(cumulative.back() + probs[i]);
+    }
+        
+    // Sample from distribution
+    double r = uniform_dist(rng);
+    for (size_t i = 0; i < cumulative.size(); ++i) {
+        if (r <= cumulative[i]) {
+            return static_cast<int>(i);
+        }
+    }
+        
+    return 0;  // Fallback
+}
+// In your agent code:
+Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
+    // Prepare input data
+    double* input_data = prepareInputData(state, false, {}, 0);
+    
+    // Get Q-values from neural network
+    double* q_values = predict_nn(id, nn_type, input_data);
+    //delete[] input_data;
+    
+    // Create action object
+    Action action;
+    action.direction = static_cast<Direction>(this->selectAction(q_values));
+    
+    // Update temperature
+    decayTemperature();
+
+    //delete[] q_values;
+
+    return action;
+}
+
+// Update temperature (call after each action selection)
+void BoltzmannPolicy::decayTemperature() {
+    m_temperature = std::max(m_min_temperature, m_temperature * m_decay_rate);
+}
+
+// Get current temperature
+double BoltzmannPolicy::getTemperature() {
+    return m_temperature;
+}

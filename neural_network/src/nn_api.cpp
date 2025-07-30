@@ -148,14 +148,9 @@ class NeuralNetwork {
             for (auto& layer : layers) {
                 layer.m_weights.randu();
                 layer.m_biases.randu();
-
-                // print check weights and biases
-                std::cout << "Layer Weights: " << layer.m_weights << std::endl;
-                std::cout << "Layer Biases: " << layer.m_biases << std::endl;
-                
             }
-            //exit(1); // Exit after randomizing weights for debugging purposes
-            return 0; // Return 0 to indicate success
+            
+            return 0;
         }
         
 };
@@ -235,13 +230,9 @@ extern "C" {
             return nn_target_instances[id]->predict(input_data);
         }
         else if (nn_type == 2) {
-            // print check
-            std::cout << "Predicting with RND predictor neural network" << std::endl;
             return nn_rnd_instances[id]->predict(input_data);
         }
         else if (nn_type == 3) {
-            // print check
-            std::cout << "Predicting with RND target neural network" << std::endl;
             return nn_rnd_target_instances[id]->predict(input_data);
         }
         // If nn_type is not recognized, print an error message

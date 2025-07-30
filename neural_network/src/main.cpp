@@ -128,10 +128,6 @@ int main() {
         if (epoch == num_epochs - 1) {
             std::cout << "Epoch " << epoch << ", Loss: " << loss << std::endl;
         }
-        // Print output
-        /*if (epoch == 2) {
-            break;
-        }*/
         
     }
     layer3.m_output.print("Output");

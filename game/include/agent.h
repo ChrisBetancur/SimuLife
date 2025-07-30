@@ -6,10 +6,12 @@
 #include <sprites.h>
 #include <map.h>
 #include <random>
+#include <policy.h>
+#include <rl_utils.h>
 
-#define MAX_ENERGY 100.0f
 #define TARGET_NN_UPDATE_INTERVAL 1000
 
+/*
 struct State {
     Genome genome;
     double energy_lvl;
@@ -18,14 +20,14 @@ struct State {
 
 struct Action {
     Direction direction;
-};
+};*/
 
 // daytime reward computation
 double computeReward(State state, Action action, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
 
 double* prepareInputData(State state, bool is_RND = false, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
 
-
+/*
 class EpsilonGreedyPolicy {
     private:
         double m_epsilon;
@@ -72,7 +74,7 @@ public:
     void decayTemperature();
 
     double getTemperature();
-};
+};*/
 
 class Agent {
     private:

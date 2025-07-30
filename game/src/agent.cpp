@@ -9,6 +9,8 @@
 
 #define RND_DIRECTORY "rnd_models"
 
+/*
+
 double computeExtrinsicReward(State state, Action action) {
     const float WALL_PENALTY = -1.0f;    // Base penalty for wall collision
     const float FOOD_REWARD = 1.0f;      // Base reward for food
@@ -128,7 +130,7 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     return total_reward;
 
 
-}
+}*/
 
 
 // Policy will help agent decide what action to take
@@ -140,7 +142,7 @@ EpsilonGreedyPolicy::EpsilonGreedyPolicy(double epsilon, double decay_rate, doub
     unif(0.0, 1.0) {
 }
 
-double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {
+/*double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {
 
     if (is_RND) {
         size_t input_size = 9 + 1 + 1; // 9 represents food eating rates, 1 for energy level total, sector_organism = 11 inputs
@@ -197,9 +199,8 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
 
     return input_data;
     
-}
-
-// MUST CHANGE POLICY TO USE RND
+}*/
+/*
 Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
     double n = unif(rng);
 
@@ -221,9 +222,6 @@ Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State st
 
         double* q_values = predict_nn(id, nn_type, input_data); // batch size should be 1 therefore we only expect 1 sample output
 
-        //delete[] input_data;
-        // Assuming q_values is a 2D array with shape (1, 4) for 4 actions
-        // Find the action with the maximum Q-value
         double max_q_value = q_values[0];
         int best_action_index = 0;
         for (int i = 1; i < 4; ++i) {
@@ -233,18 +231,10 @@ Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State st
             }
         }
 
-        // print q values
-        std::cout << "Q-values: ";
-        for (int i = 0; i < 4; ++i) {
-            std::cout << q_values[i] << " ";
-        }
-        std::cout << std::endl;
 
         Action action;
         action.direction = static_cast<Direction>(best_action_index);
 
-        // print direction
-        std::cout << "Action: " << action.direction << std::endl;
 
         m_epsilon *= m_decay_rate;
 
@@ -341,7 +331,7 @@ void BoltzmannPolicy::decayTemperature() {
 // Get current temperature
 double BoltzmannPolicy::getTemperature() {
     return m_temperature;
-}
+}*/
 
 
 Agent::Agent(Organism* organism):
