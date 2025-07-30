@@ -9,339 +9,50 @@
 
 #define RND_DIRECTORY "rnd_models"
 
-/*
 
-double computeExtrinsicReward(State state, Action action) {
-    const float WALL_PENALTY = -1.0f;    // Base penalty for wall collision
-    const float FOOD_REWARD = 1.0f;      // Base reward for food
-    double reward = 0.0f;
-    bool wall_in_path = false;
-    bool food_in_path = false;
-
-    // Vision processing with distance weighting
-    for (int i = 0; i < state.vision.size(); ++i) {
-        // Immediate collision check (current cell)
-        if (i == 0) {
-            if (state.vision[i] == WALL) {
-                reward += WALL_PENALTY * 2.0f;  // Double penalty for direct collision
-                wall_in_path = true;
-            }
-            else if (state.vision[i] == FOOD) {
-                reward += FOOD_REWARD * 1.5f;    // Bonus for immediate food
-                food_in_path = true;
-            }
-            continue;
-        }
-
-        // Distance-weighted observations (closer = stronger signal)
-        float distance_weight = 1.0f / (i + 1);
-        
-        if (state.vision[i] == WALL) {
-            // Only penalize if no food exists in same direction
-            if (!food_in_path) {
-                reward += WALL_PENALTY * distance_weight * 0.8f;
-                wall_in_path = true;
-            }
-        }
-        else if (state.vision[i] == FOOD) {
-            reward += FOOD_REWARD * distance_weight;
-            food_in_path = true;
-            
-            // Risk-taking bonus: approaching wall-containing path with food
-            if (wall_in_path) {
-                reward += 0.3f * distance_weight;  // Encourage calculated risks
-            }
-        }
-    }
-
-    // Energy-based survival incentives
-    if (state.energy_lvl <= 0) {
-        reward -= 1.0f;  // Starvation penalty
-    } else {
-        reward += 0.15f * (state.energy_lvl / MAX_ENERGY);  // Energy conservation
-    }
-
-    return std::clamp(reward, -1.0, 1.0);
-}
-
-double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector) {
-
-
-    double* input_data = prepareInputData(state, true, food_rates, organism_sector);
-
-    
-
-    // IDs for predictor and target will both be 0 for now
-    uint32_t id = 0;
-    uint32_t nn_type = 2; // RND predictor
-    double* predictor_q_values = predict_nn(id, 2, input_data); 
-
-    nn_type = 3; // RND target
-    double* target_q_values = predict_nn(id, 3, input_data);
-
-    double intrinsic_reward = 0.0f;
-
-    // Assuming predictor_q_values and target_q_values are 1D arrays with 4 elements each
-    // Calculate the RND reward as the squared difference between predictor and target Q-values
-    for (int i = 0; i < 4; ++i) {
-        intrinsic_reward += (predictor_q_values[i] - target_q_values[i]) * (predictor_q_values[i] - target_q_values[i]);
-    }
-
-    
-
-    if (!std::isfinite(intrinsic_reward)) intrinsic_reward = 1e12;
-    intrinsic_reward = std::min(intrinsic_reward, 1e12);
-    intrinsic_reward = std::log1p(intrinsic_reward);
-
-
-    double z = stats::peek_z_score(intrinsic_reward);
-
-    stats::update_stats(intrinsic_reward);
-    
-    double extrinsic_reward = computeExtrinsicReward(state, action);
-
-    double beta = stats::current_beta();
-
-    double total_reward = extrinsic_reward + beta * z;
-
-    double max_q_value = target_q_values[0];
-
-    int best_action_index = 0;
-    for (int i = 1; i < 4; ++i) {
-        if (target_q_values[i] > max_q_value) {
-            max_q_value = target_q_values[i];
-            best_action_index = i;
-        }
-    }
-
-    double target = total_reward + 0.9 * max_q_value;
-
-    target_q_values[best_action_index] = target;
-
-
-    train_nn(0, 2, target_q_values);
-
-    //delete[] input_data;
-    //delete[] predictor_q_values;
-    //delete[] target_q_values;
-
-
-
-    return total_reward;
-
-
-}*/
-
-
-// Policy will help agent decide what action to take
-EpsilonGreedyPolicy::EpsilonGreedyPolicy(double epsilon, double decay_rate, double min_epsilon) : 
-    m_epsilon(epsilon),
-    m_decay_rate(decay_rate),
-    m_min_epsilon(min_epsilon),
-    rng(rd()),
-    unif(0.0, 1.0) {
-}
-
-/*double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {
-
-    if (is_RND) {
-        size_t input_size = 9 + 1 + 1; // 9 represents food eating rates, 1 for energy level total, sector_organism = 11 inputs
-        double* input_data = new double[input_size];  // Allocate as a single array
-
-        input_data[0] = organism_sector;
-
-        input_data[1] = static_cast<double>(state.energy_lvl);
-
-        // Add food eating rates
-        for (size_t i = 0; i < food_rates.size(); ++i) {
-            input_data[3 + i] = food_rates[i]; // Assuming food_rates is a vector of size 9
-        }
-
-
-        return input_data;  // Return the prepared input data
-
-    }
-
-    size_t input_size = 4 + 1 + MAX_ORGANISM_VISION_DEPTH * 4; // 4 inputs represent one cell, one hot encode each cell
-    double* input_data = new double[input_size];  // Allocate as a single array
-
-    // Populate data
-    input_data[0] = static_cast<double>(state.genome.gender);
-    input_data[1] = static_cast<double>(state.genome.vision_depth);
-    input_data[2] = static_cast<double>(state.genome.speed);
-    input_data[3] = static_cast<double>(state.genome.size);
-    input_data[4] = static_cast<double>(state.energy_lvl);
-
-    // Add vision data
-    for (size_t i = 0; i < state.vision.size(); i += 4) {
-        if (state.vision[i] == EMPTY) {
-            input_data[5 + i] = 1.0; // One-hot encoding for EMPTY
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == WALL) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 1.0; // One-hot encoding for WALL
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == FOOD) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 1.0; // One-hot encoding for FOOD
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == ORGANISM) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 1.0; // One-hot encoding for ORGANISM
-        }
-    }
-
-    return input_data;
-    
-}*/
-/*
-Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
-    double n = unif(rng);
-
-    std::vector<Action> actions;
-
-    if (n < m_epsilon) {
-        // print check
-        // Explore: choose a random action
-        std::uniform_int_distribution<int> dist(0, 3);
-        Action action;
-        action.direction = static_cast<Direction>(dist(rng));
-        return action;
-    } 
-    else {
-
-
-        // Prepare input data for the neural network
-        double* input_data = prepareInputData(state, false, {}, 0);
-
-        double* q_values = predict_nn(id, nn_type, input_data); // batch size should be 1 therefore we only expect 1 sample output
-
-        double max_q_value = q_values[0];
-        int best_action_index = 0;
-        for (int i = 1; i < 4; ++i) {
-            if (q_values[i] > max_q_value) {
-                max_q_value = q_values[i];
-                best_action_index = i;
-            }
-        }
-
-
-        Action action;
-        action.direction = static_cast<Direction>(best_action_index);
-
-
-        m_epsilon *= m_decay_rate;
-
-        if (m_epsilon < m_min_epsilon) {
-            m_epsilon = m_min_epsilon;
-        }
-
-        //delete[] q_values;
-
-        return action;
-    }
-    
-}
-
-std::vector<double> BoltzmannPolicy::computeProbabilities(double* q_values) {
-    const int num_actions = 4;
-    std::vector<double> probabilities;
-    probabilities.reserve(num_actions);
-
-    // 1. Find maximum Q-value for numerical stability
-    double max_q = q_values[0];
-    for (int i = 1; i < num_actions; ++i) {
-        if (q_values[i] > max_q) {
-            max_q = q_values[i];
-        }
-    }
-
-    // 2. Compute exponentials and their sum
-    double sum_exp = 0.0;
-    for (int i = 0; i < num_actions; ++i) {
-        // Apply temperature scaling and exponentiate
-        double exp_val = std::exp((q_values[i] - max_q) / m_temperature);
-        probabilities.push_back(exp_val);
-        sum_exp += exp_val;
-    }
-
-    // 3. Normalize to get probabilities
-    for (double& prob : probabilities) {
-        prob /= sum_exp;
-    }
-
-    return probabilities;
-}
-
-    // Select action based on softmax probabilities
-int BoltzmannPolicy::selectAction(double* q_values) {
-    std::vector<double> probs = computeProbabilities(q_values);
-        
-    // Create cumulative distribution
-    std::vector<double> cumulative;
-    cumulative.reserve(probs.size());
-    cumulative.push_back(probs[0]);
-        
-    for (size_t i = 1; i < probs.size(); ++i) {
-        cumulative.push_back(cumulative.back() + probs[i]);
-    }
-        
-    // Sample from distribution
-    double r = uniform_dist(rng);
-    for (size_t i = 0; i < cumulative.size(); ++i) {
-        if (r <= cumulative[i]) {
-            return static_cast<int>(i);
-        }
-    }
-        
-    return 0;  // Fallback
-}
-// In your agent code:
-Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
-    // Prepare input data
-    double* input_data = prepareInputData(state, false, {}, 0);
-    
-    // Get Q-values from neural network
-    double* q_values = predict_nn(id, nn_type, input_data);
-    //delete[] input_data;
-    
-    // Create action object
-    Action action;
-    action.direction = static_cast<Direction>(this->selectAction(q_values));
-    
-    // Update temperature
-    decayTemperature();
-
-    //delete[] q_values;
-
-    return action;
-}
-
-// Update temperature (call after each action selection)
-void BoltzmannPolicy::decayTemperature() {
-    m_temperature = std::max(m_min_temperature, m_temperature * m_decay_rate);
-}
-
-// Get current temperature
-double BoltzmannPolicy::getTemperature() {
-    return m_temperature;
-}*/
 
 
 Agent::Agent(Organism* organism):
     m_organism(organism) {  // Dynamically allocate
+
+    m_epsilon_policy = nullptr;
+    m_boltzmann_policy = nullptr;
     //m_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06); // Initialize policy
-    m_policy = new BoltzmannPolicy(1.0, 0.9995, 0.1); // Initialize Boltzmann policy
+    //m_policy = new BoltzmannPolicy(1.0, 0.9995, 0.1); // Initialize Boltzmann policy
 }
 
+void Agent::setPolicy(PolicyType policy_type) {
+    m_policy_type = policy_type;
+    // Free the existing policy if it exists
+    if (m_epsilon_policy) {
+        delete m_epsilon_policy;
+        m_epsilon_policy = nullptr;
+    }
+    if (m_boltzmann_policy) {
+        delete m_boltzmann_policy;
+        m_boltzmann_policy = nullptr;
+    }
+
+    if (policy_type == PolicyType::EPSILON_GREEDY) {
+        m_epsilon_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06);
+    } else if (policy_type == PolicyType::BOLTZMANN) {
+        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9995, 0.1);
+    } else {
+        throw std::invalid_argument("Unknown policy type");
+    }
+}
+/*
+void Agent::enableRND(bool enable) {
+    m_rndEnabled = enable;
+}*/
+
 Agent::~Agent() {  // Destructor to free memory
-    delete m_policy; // Free the policy
+    if (m_epsilon_policy) {
+        delete m_epsilon_policy;
+    }
+    if (m_boltzmann_policy) {
+        delete m_boltzmann_policy;
+    }
 }
      
 void Agent::updateState(Map* map) {
@@ -358,9 +69,14 @@ void Agent::updateState(Map* map) {
 }
 
 Action Agent::chooseAction() {
-    // Choose an action based on the policy
-    Action action = m_policy->selectAction(0, 0, m_state);
-    return action;
+    switch (m_policy_type) {
+        case PolicyType::EPSILON_GREEDY:
+            return m_epsilon_policy->selectAction(0, 0, m_state);
+        case PolicyType::BOLTZMANN:
+            return m_boltzmann_policy->selectAction(0, 0, m_state);
+        default:
+            throw std::invalid_argument("Unknown policy type");
+    }
 }
 
 void Agent::learn(State state, Action action, float reward) {

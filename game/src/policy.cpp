@@ -1,5 +1,14 @@
 #include <policy.h>
 
+// Policy will help agent decide what action to take
+EpsilonGreedyPolicy::EpsilonGreedyPolicy(double epsilon, double decay_rate, double min_epsilon) : 
+    m_epsilon(epsilon),
+    m_decay_rate(decay_rate),
+    m_min_epsilon(min_epsilon),
+    rng(rd()),
+    unif(0.0, 1.0) {
+}
+
 
 Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
     double n = unif(rng);

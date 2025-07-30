@@ -21,6 +21,11 @@ struct Action {
     Direction direction;
 };
 
+enum class PolicyType {
+    EPSILON_GREEDY,
+    BOLTZMANN
+};
+
 double computeExtrinsicReward(State state, Action action);
 
 double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector);

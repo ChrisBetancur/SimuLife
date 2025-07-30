@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <nn_api.h>
 #include <agent.h>
+#include <stdbool.h>
 
 
 class Game {
@@ -29,7 +30,11 @@ class Game {
         int m_totalEpisodes;
         int m_currentEpisode;
 
+        bool m_rndEnabled;
+
         int timestep = 0;
+        std::vector<std::string> m_policies; // List of policies to choose from
+        std::vector<bool> m_selectedPolicies; // Track selected policies
         
     public:
         Game();

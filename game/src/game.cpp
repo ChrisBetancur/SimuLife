@@ -1,4 +1,5 @@
 #include <game.h>
+#include <rl_utils.h>
 
 
 
@@ -105,6 +106,36 @@ void Game::run() {
 }
 
 void Game::runEpisodes(int episodes) {
+    bool policySelected = false;
+
+    std::cout << "Available policies:" << m_policies.size()<< std::endl;
+    for (int i = 0; i < m_policies.size(); ++i) {
+        // print check
+        std::cout << "Policy: " << m_policies[i] << ", Selected: " << (m_selectedPolicies[i] ? "Yes" : "No") << std::endl;
+        if (m_selectedPolicies[i]) {
+            if (m_policies[i] == "Epsilon-Greedy") {
+                // printcheck
+                std::cout << "Using EpsilonGreedy policy" << std::endl;
+                // POLICY TYPE IS A ENUM IN rl_utils.h
+                m_agent->setPolicy(PolicyType::EPSILON_GREEDY);
+                policySelected = true;
+            } else if (m_policies[i] == "Boltzmann") {
+                // printcheck
+                std::cout << "Using Boltzmann policy" << std::endl;
+                m_agent->setPolicy(PolicyType::BOLTZMANN);
+                policySelected = true;
+            }
+        }
+    }
+
+    //exit(1);
+
+    if (!policySelected) {
+        std::cerr << "No policy selected. Please select at least one policy." << std::endl;
+        m_currentState = State::MENU;
+        return;
+    }
+    
     for (int i = 0; i < episodes; ++i) {
         m_map->reset();
         std::random_device rd;
@@ -224,10 +255,30 @@ void Game::runEpisodes(int episodes) {
     m_currentState = State::MENU;
 }
 
+
 void Game::showMenu() {
     bool inMenu = true;
     std::string episodeInput;
     SDL_StartTextInput();
+
+    // Policy options and RND toggle state
+    m_policies = { "Epsilon-Greedy", "Boltzmann" };
+    std::vector<bool> policySelected(m_policies.size(), false);
+
+    bool rndEnabled = false;
+
+    int inputX = 50, inputY = 200;
+
+    // UI layout constants
+    const int menuWidth = 800, menuHeight = 600;
+    const SDL_Rect inputRect   = {inputX, inputY, 400, 40};
+    const SDL_Rect startButton = {300, 500, 200, 50};
+    const SDL_Color bgColor    = {50, 50, 50, 255};
+    const SDL_Color textColor  = {255, 255, 255, 255};
+    const SDL_Color boxColor   = {200, 200, 200, 255};
+
+    int rndSwitchX = 50, rndSwitchY = 400;
+    int policyBoxX = 50, policyBoxY = 265;
 
     while (inMenu) {
         SDL_Event event;
@@ -236,60 +287,116 @@ void Game::showMenu() {
                 case SDL_QUIT:
                     inMenu = false;
                     m_currentState = State::QUIT;
-                    return;
-                    
-                case SDL_MOUSEBUTTONDOWN:
-                    if (event.button.button == SDL_BUTTON_LEFT) {
-                        int x = event.button.x;
-                        int y = event.button.y;
-                        
-                        // Check if click is within "Start" button area
-                        if (x > 300 && x < 500 && y > 400 && y < 450) {
-                            try {
-                                m_totalEpisodes = std::stoi(episodeInput);
-                                if (m_totalEpisodes > 0) {
-                                    inMenu = false;
-                                    m_currentState = State::RUNNING;
-                                }
-                            } catch (...) {
-                                // Invalid input
-                            }
+                    break;
+                case SDL_MOUSEBUTTONDOWN: {
+                    int mx = event.button.x;
+                    int my = event.button.y;
+
+                    bool hasPolicySelected = false;
+
+                    for (bool policy : policySelected) {
+                        if (policy) {
+                            hasPolicySelected = true;
+                            break;
                         }
                     }
-                    break;
-                    
+
+                    // Toggle checkpoints for each policy
+                    for (size_t i = 0; i < m_policies.size(); ++i) {
+                        SDL_Rect chk = {policyBoxX, policyBoxY + int(i) * 40, 20, 20};
+                        if (mx >= chk.x && mx <= chk.x + chk.w && my >= chk.y && my <= chk.y + chk.h) {
+                            if (!hasPolicySelected) {
+                                hasPolicySelected = true;
+                                policySelected[i] = !policySelected[i];
+
+                                // print check
+                                std::cout << "Toggled policy: " << m_policies[i] << " to "
+                                          << (policySelected[i] ? "selected" : "deselected") << std::endl;
+                            }
+                            else {
+                                // If already selected, toggle off
+                                if (policySelected[i]) {
+                                    policySelected[i] = false;
+                                    break; // Skip to next iteration
+                                }
+                            }
+                            
+                        }
+                    }
+                    // Toggle RND switch
+                    SDL_Rect rndSwitch = {rndSwitchX, rndSwitchY, 60, 30};
+                    if (mx >= rndSwitch.x && mx <= rndSwitch.x + rndSwitch.w && my >= rndSwitch.y && my <= rndSwitch.y + rndSwitch.h) {
+                        rndEnabled = !rndEnabled;
+                    }
+                    // Start button
+                    if (mx > startButton.x && mx < startButton.x + startButton.w && my > startButton.y && my < startButton.y + startButton.h) {
+                        try {
+                            m_totalEpisodes = std::stoi(episodeInput);
+                            if (m_totalEpisodes > 0) {
+                                inMenu = false;
+                                m_currentState = State::RUNNING;
+                            }
+                        } catch (...) {}
+                    }
+                } break;
                 case SDL_TEXTINPUT:
                     episodeInput += event.text.text;
                     break;
-                    
                 case SDL_KEYDOWN:
-                    if (event.key.keysym.sym == SDLK_BACKSPACE && !episodeInput.empty()) {
+                    if (event.key.keysym.sym == SDLK_BACKSPACE && !episodeInput.empty())
                         episodeInput.pop_back();
-                    }
                     break;
             }
         }
 
-        // Draw menu
-        SDL_SetRenderDrawColor(m_renderer, 50, 50, 50, 255);
+        // Draw background
+        SDL_SetRenderDrawColor(m_renderer, bgColor.r, bgColor.g, bgColor.b, bgColor.a);
         SDL_RenderClear(m_renderer);
 
         // Draw title
-        drawText(m_renderer, "Simulife AI Training", 260, 100, {255, 255, 255});
-        
-        // Draw input box
-        SDL_Rect inputRect = {200, 300, 400, 40};
+        drawText(m_renderer, "SimuLife AI Training", 260, 100, textColor);
+
+        // Draw episode input
         SDL_SetRenderDrawColor(m_renderer, 255, 255, 255, 255);
         SDL_RenderFillRect(m_renderer, &inputRect);
-        drawText(m_renderer, "Episodes: " + episodeInput, 210, 305, {0, 0, 0});
-        
-        // Draw start button
-        SDL_Rect buttonRect = {300, 400, 200, 50};
+        drawText(m_renderer, "Episodes: " + episodeInput, inputX + 10, inputY + 5, {0,0,0,255});
+
+        // Draw policy checkboxes
+        for (size_t i = 0; i < m_policies.size(); ++i) {
+            SDL_Rect box = {policyBoxX, policyBoxY + int(i) * 40, 20, 20};
+            SDL_SetRenderDrawColor(m_renderer, boxColor.r, boxColor.g, boxColor.b, boxColor.a);
+            SDL_RenderFillRect(m_renderer, &box);
+            if (policySelected[i]) {
+                // draw inner filled box when selected
+                SDL_Rect inner = {box.x + 4, box.y + 4, box.w - 8, box.h - 8};
+                SDL_SetRenderDrawColor(m_renderer, 0, policyBoxY, 0, 255);
+                SDL_RenderFillRect(m_renderer, &inner);
+            }
+            drawText(m_renderer, m_policies[i], box.x + 30, box.y - 2, textColor);
+        }
+
+        // Draw RND toggle switch background
+        SDL_Rect rndBg = {rndSwitchX, rndSwitchY, 60, 30};
+        SDL_SetRenderDrawColor(m_renderer, boxColor.r, boxColor.g, boxColor.b, boxColor.a);
+        SDL_RenderFillRect(m_renderer, &rndBg);
+        // Draw switch handle
+        SDL_Rect handle = rndEnabled
+            ? SDL_Rect{rndSwitchX + rndBg.w - 28, rndSwitchY + 2, 26, 26}
+            : SDL_Rect{rndSwitchX + 2,         rndSwitchY + 2, 26, 26};
+        SDL_SetRenderDrawColor(m_renderer, rndEnabled ? 0 : rndSwitchY - 50, rndEnabled ? rndSwitchY : 100, 0, 255);
+        SDL_RenderFillRect(m_renderer, &handle);
+        drawText(m_renderer, std::string("RND: ") + (rndEnabled ? "ON" : "OFF"), rndSwitchX, rndSwitchY + 40, textColor);
+
+        // Draw Start button
         SDL_SetRenderDrawColor(m_renderer, 0, 255, 0, 255);
-        SDL_RenderFillRect(m_renderer, &buttonRect);
-        drawText(m_renderer, "Start Training", 312, 410, {0, 0, 0});
+        SDL_RenderFillRect(m_renderer, &startButton);
+        drawText(m_renderer, "Start Training", startButton.x + 12, startButton.y + 12, {0,0,0,255});
 
         SDL_RenderPresent(m_renderer);
+        SDL_Delay(10);
     }
     SDL_StopTextInput();
+    // Store selected policies and rndEnabled in member variables, if needed
+    m_selectedPolicies = policySelected;
+    m_rndEnabled = rndEnabled;
 }

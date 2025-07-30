@@ -11,70 +11,9 @@
 
 #define TARGET_NN_UPDATE_INTERVAL 1000
 
-/*
-struct State {
-    Genome genome;
-    double energy_lvl;
-    std::vector<CellType> vision;
-};
-
-struct Action {
-    Direction direction;
-};*/
-
-// daytime reward computation
 double computeReward(State state, Action action, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
 
 double* prepareInputData(State state, bool is_RND = false, std::vector<double> food_rates = std::vector<double>(), uint32_t organism_sector = 0);
-
-/*
-class EpsilonGreedyPolicy {
-    private:
-        double m_epsilon;
-        double m_decay_rate;
-        double m_min_epsilon;
-
-        std::random_device rd;
-        std::mt19937 rng;
-        std::uniform_real_distribution<double> unif;
-
-    public:
-        EpsilonGreedyPolicy(double epsilon = 1.0, double decay_rate = 0.99, double min_epsilon = 0.01);
-        
-        Action selectAction(uint32_t id, uint32_t nn_type, State state);
-};
-
-class BoltzmannPolicy {
-private:
-    double m_temperature;      // Exploration parameter (tau)
-    double m_decay_rate;       // Temperature decay rate
-    double m_min_temperature;  // Minimum temperature value
-    std::random_device rd;
-    std::mt19937 rng;
-    std::uniform_real_distribution<double> uniform_dist;
-
-    int selectAction(const std::vector<double>& q_values);
-
-public:
-    BoltzmannPolicy(double initial_temp = 1.0, 
-                    double decay_rate = 0.9995,
-                    double min_temp = 0.1)
-        : m_temperature(initial_temp),
-          m_decay_rate(decay_rate),
-          m_min_temperature(min_temp),
-          rng(rd()),
-          uniform_dist(0.0, 1.0) {}
-
-    std::vector<double> computeProbabilities(double* q_values);
-
-    int selectAction(double* q_values);
-
-    Action selectAction(uint32_t id, uint32_t nn_type, State state);
-
-    void decayTemperature();
-
-    double getTemperature();
-};*/
 
 class Agent {
     private:
@@ -82,11 +21,18 @@ class Agent {
         State m_state;
         Action m_action;
 
-        //EpsilonGreedyPolicy* m_policy;
-        BoltzmannPolicy* m_policy;
+        EpsilonGreedyPolicy* m_epsilon_policy;
+        BoltzmannPolicy* m_boltzmann_policy;
+
+        PolicyType m_policy_type;
+        bool m_rndEnabled;
 
     public:
         Agent(Organism* organism);
+
+        void setPolicy(PolicyType policy_type);
+
+        void enableRND(bool enable);
 
         ~Agent();
         
@@ -97,6 +43,7 @@ class Agent {
         State getState() const { return m_state; }
         
         void learn(State state, Action action, float reward);
+
 };
 
 class Trainer {
