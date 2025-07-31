@@ -12,6 +12,10 @@ LayerDense::LayerDense(uint32_t n_inputs, uint32_t n_neurons, double weight_regu
     m_velocity_biases = arma::zeros<arma::mat>(1, n_neurons);
 }
 
+void LayerDense::reset() {
+    //m_inputs.reset();
+    m_output.reset();
+}
 
 void LayerDense::set_weights(arma::mat weights) {
     m_weights = weights;

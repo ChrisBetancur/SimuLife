@@ -13,6 +13,8 @@ class Activation_ReLU {
         void forward(const arma::mat inputs);
 
         arma::mat backward(const arma::mat& dvalues);
+
+        void reset();
 };
 
 class Activation_ReLU_Leaky {
@@ -25,6 +27,8 @@ class Activation_ReLU_Leaky {
         void forward(const arma::mat inputs);
 
         arma::mat backward(const arma::mat& dvalues);
+
+        void reset();
 };
 
 #endif

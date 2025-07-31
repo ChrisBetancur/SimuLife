@@ -17,6 +17,11 @@ arma::mat Activation_ReLU::backward(const arma::mat& dvalues) {
     return dvalues % drelu;  // Element-wise multiplication
 }
 
+void Activation_ReLU::reset() {
+    m_inputs.clear();
+    m_output.clear();
+}
+
 void Activation_ReLU_Leaky::forward(const arma::mat inputs) {
     m_inputs = inputs;
     m_output = inputs;
@@ -30,4 +35,9 @@ arma::mat Activation_ReLU_Leaky::backward(const arma::mat& dvalues) {
     arma::mat drelu = arma::mat(m_inputs.n_rows, m_inputs.n_cols, arma::fill::ones);
     drelu.elem(arma::find(m_inputs <= 0)).fill(m_alpha);  // Vectorized operation
     return dvalues % drelu;  // Element-wise multiplication
+}
+
+void Activation_ReLU_Leaky::reset() {
+    m_inputs.reset();
+    m_output.reset();
 }

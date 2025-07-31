@@ -135,6 +135,8 @@ void Game::runEpisodes(int episodes) {
     }
     
     for (int i = 0; i < episodes; ++i) {
+
+
         m_map->reset();
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -249,6 +251,7 @@ void Game::runEpisodes(int episodes) {
         SDL_Delay(500);
 
         timestep = 0;
+
     }
 
     m_currentState = State::MENU;
@@ -307,10 +310,6 @@ void Game::showMenu() {
                             if (!hasPolicySelected) {
                                 hasPolicySelected = true;
                                 policySelected[i] = !policySelected[i];
-
-                                // print check
-                                std::cout << "Toggled policy: " << m_policies[i] << " to "
-                                          << (policySelected[i] ? "selected" : "deselected") << std::endl;
                             }
                             else {
                                 // If already selected, toggle off

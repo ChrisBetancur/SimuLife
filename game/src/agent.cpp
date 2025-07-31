@@ -149,7 +149,9 @@ void Trainer::learn(State state, Action action, double reward) {
     // Prepare input data for the neural network
     double* input_data = prepareInputData(state, false, {}, 0);
 
-    double* q_values = predict_nn(0, 1, input_data); // batch size should be 1 therefore we only expect 1 sample output
+    double* q_values = new double[4]; // Assuming 4 actions
+
+    predict_nn(0, 1, input_data, q_values); // batch size should be 1 therefore we only expect 1 sample output
 
     // Assuming q_values is a 2D array with shape (1, 4) for 4 actions
     // Find the action with the maximum Q-value
@@ -170,8 +172,8 @@ void Trainer::learn(State state, Action action, double reward) {
     // Train the neural network
     train_nn(0, 0, q_values);
 
-    delete[] input_data;
-    delete[] q_values;
+    //delete[] input_data;
+    //delete[] q_values;
 }
 
 

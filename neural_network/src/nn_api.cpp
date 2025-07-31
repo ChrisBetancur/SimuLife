@@ -87,28 +87,63 @@ class NeuralNetwork {
             }
         }
 
-        double* predict(double* input_data) {
+        void reset_episode() {
+            for (auto& layer : m_layers) {
+                layer.m_inputs.reset();
+                layer.m_output.reset();
+                layer.m_dweights.reset();
+                layer.m_dbiases.reset();
+                layer.m_dinputs.reset();
+                }
+                
+            // Clear all activation matrices
+            for (auto& activation : m_activations) {
+                activation.m_inputs.reset();
+                activation.m_output.reset();
+            }
+        }
+
+        void cleanup() {
+            for (auto& layer : m_layers) {
+                layer.reset();  // Clears intermediate inputs/outputs
+            }
+            for (auto& activation : m_activations) {
+                activation.reset();  // Clears stored inputs/outputs
+            }
+        }
+
+        void predict(double* input_data, double* output_data) {
+            //cleanup(); // Reset all layers and activations before prediction
             // convert sample to arma::mat
             
                 // Safety checks
             if (input_data == nullptr) {
                 std::cerr << "Error: input_data is null" << std::endl;
-                return nullptr;
+                return;
             }
             const size_t num_elements = static_cast<size_t>(m_input_dim) * static_cast<size_t>(m_batch_size);
             if (num_elements == 0) {
                 std::cerr << "Error: input_data has zero elements" << std::endl;
-                return nullptr;
+                return;
             }
 
-            // Copy input data to a local vector
-            std::vector<double> input_copy(input_data, input_data + num_elements);
+            /*if (output_data == nullptr) {
+                std::cerr << "Error: output_data is null" << std::endl;
+                return;
+            }
+
+            if (m_input_dim == 0 || m_batch_size == 0) {
+                std::cerr << "Error: Invalid network dimensions" << std::endl;
+                return;
+            }*/
+
 
             // Create arma::mat from the copied data
-            arma::mat inputs(input_copy.data(), m_input_dim, m_batch_size, true, true);
-
             //arma::mat inputs(input_data, m_input_dim, m_batch_size, true, true);
+
+            arma::mat inputs(input_data, m_input_dim, m_batch_size, true);
             inputs = inputs.t(); // Transpose to match the expected input shape
+
 
             for (int i = 0; i < m_layers.size(); ++i) {
                 m_layers[i].forward(inputs);
@@ -118,20 +153,19 @@ class NeuralNetwork {
                 inputs = m_activations[i].m_output;
             }
 
+
             // output is in m_activations[m_activations.size() - 1].m_output
             arma::mat& output = m_activations.back().m_output;
 
             // Convert Armadillo matrix to double* (copy data)
-            double* result = new double[output.n_elem];  // Allocate memory
-            std::memcpy(result, output.memptr(), output.n_elem * sizeof(double));
-
-            return result;
+            std::memcpy(output_data, output.memptr(), output.n_elem * sizeof(double));
         }
 
 
         void train(double* target_data) {
+            //cleanup(); // Reset all layers and activations before training
             // Convert target_data to arma::mat
-            arma::mat expected_output(target_data, m_layers.back().m_output.n_rows, m_layers.back().m_output.n_cols, false, true);
+            arma::mat expected_output(target_data, m_layers.back().m_output.n_rows, m_layers.back().m_output.n_cols, true, false);
 
             // Compute loss
             double loss = mse_loss(m_activations.back().m_output, expected_output);
@@ -240,19 +274,20 @@ extern "C" {
     }
 
     // Prediction function converts arma::mat to double*
-    double* predict_nn(uint32_t id, uint32_t nn_type, double* input_data) {
+    void predict_nn(uint32_t id, uint32_t nn_type, double* input_data, double* output_data) {
         if (nn_type == 0) {
-            return nn_online_instances[id]->predict(input_data);
+            nn_online_instances[id]->predict(input_data, output_data);
         }
         else if (nn_type == 1) {
-            return nn_target_instances[id]->predict(input_data);
+            nn_target_instances[id]->predict(input_data, output_data);
         }
         else if (nn_type == 2) {
-            return nn_rnd_instances[id]->predict(input_data);
+            nn_rnd_instances[id]->predict(input_data, output_data);
         }
         else if (nn_type == 3) {
-            return nn_rnd_target_instances[id]->predict(input_data);
+            nn_rnd_target_instances[id]->predict(input_data, output_data);
         }
+    
         // If nn_type is not recognized, print an error message
         else {
             std::cerr << "Error: Invalid neural network type" << std::endl;
@@ -346,6 +381,26 @@ extern "C" {
         // If nn_type is not recognized, print an error message
         std::cerr << "Error: Invalid neural network type" << std::endl;
         exit(1);
+    }
+
+    void reset_episode(uint32_t id, uint32_t nn_type) {
+        if (nn_type == 0) {
+            nn_online_instances[id]->reset_episode();
+        }
+        else if (nn_type == 1) {
+            nn_target_instances[id]->reset_episode();
+        }
+        else if (nn_type == 2) {
+            nn_rnd_instances[id]->reset_episode();
+        }
+        else if (nn_type == 3) {
+            nn_rnd_target_instances[id]->reset_episode();
+        }
+        // If nn_type is not recognized, print an error message
+        else {
+            std::cerr << "Error: Invalid neural network type" << std::endl;
+            exit(1);
+        }
     }
 
 

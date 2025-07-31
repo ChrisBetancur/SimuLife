@@ -29,7 +29,9 @@ Action EpsilonGreedyPolicy::selectAction(uint32_t id, uint32_t nn_type, State st
         // Prepare input data for the neural network
         double* input_data = prepareInputData(state, false, {}, 0);
 
-        double* q_values = predict_nn(id, nn_type, input_data); // batch size should be 1 therefore we only expect 1 sample output
+        double* q_values = new double[4];
+
+        predict_nn(id, nn_type, input_data, q_values); // batch size should be 1 therefore we only expect 1 sample output
 
         double max_q_value = q_values[0];
         int best_action_index = 0;
@@ -116,8 +118,9 @@ Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state)
     // Prepare input data
     double* input_data = prepareInputData(state, false, {}, 0);
     
+    double* q_values = new double[4]; // Assuming 4 actions
     // Get Q-values from neural network
-    double* q_values = predict_nn(id, nn_type, input_data);
+    predict_nn(id, nn_type, input_data, q_values);
     //delete[] input_data;
     
     // Create action object

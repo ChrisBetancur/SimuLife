@@ -31,6 +31,8 @@ class LayerDense {
         // Copy constructor
         LayerDense(const LayerDense&) = default;
 
+        void reset();
+
         void set_weights(arma::mat weights);
 
         void set_biases(arma::mat biases);
