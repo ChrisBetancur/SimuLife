@@ -1,7 +1,10 @@
-#include <armadillo>
-
 #ifndef LAYER_DENSE_H
 #define LAYER_DENSE_H
+
+#include <sstream> // For std::ostringstream
+#include <string>  // For std::string
+#include <iostream> // For std::cout (for testing)
+#include <armadillo> // For arma::mat, arma::vec etc.
 
 class LayerDense {
     private:
@@ -21,6 +24,8 @@ class LayerDense {
         arma::mat m_velocity_weights;
         arma::mat m_velocity_biases;
 
+        int gradient_counter = 0;
+
         // lambda hyperparams for regularization
         double m_weight_regularizer_L1, m_weight_regularizer_L2;
         double m_bias_regularizer_L1, m_bias_regularizer_L2;
@@ -29,7 +34,10 @@ class LayerDense {
             double bias_regularizer_L1 = 0.0, double bias_regularizer_L2 = 0.0);
 
         // Copy constructor
-        LayerDense(const LayerDense&) = default;
+        //LayerDense(const LayerDense&) = default;
+
+        LayerDense(const LayerDense& other);
+
 
         void reset();
 

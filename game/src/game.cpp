@@ -1,9 +1,10 @@
 #include <game.h>
 #include <rl_utils.h>
+#include <logger.h>
 
 
 
-Game::Game() : m_currentState(State::MENU), m_totalEpisodes(0), m_currentEpisode(0) {
+Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpisode(0) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL init failed: " << SDL_GetError() << std::endl;
         exit(1);
@@ -91,14 +92,14 @@ void Game::run() {
 
     while (running) {
         switch (m_currentState) {
-            case State::MENU:
+            case GameState::MENU:
                 showMenu();
                 break;
-            case State::RUNNING:
+            case GameState::RUNNING:
                 runEpisodes(m_totalEpisodes);
                 break;
 
-            case State::QUIT:
+            case GameState::QUIT:
                 running = false;
                 break;
         }
@@ -130,13 +131,13 @@ void Game::runEpisodes(int episodes) {
 
     if (!policySelected) {
         std::cerr << "No policy selected. Please select at least one policy." << std::endl;
-        m_currentState = State::MENU;
+        m_currentState = GameState::MENU;
         return;
     }
     
     for (int i = 0; i < episodes; ++i) {
 
-
+        Logger::getInstance().log(LogType::INFO, "---------- Episode " + std::to_string(i + 1) + " of " + std::to_string(episodes) + " ----------");
         m_map->reset();
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -177,7 +178,7 @@ void Game::runEpisodes(int episodes) {
             int dx = 0, dy = 0;
 
             // Get the action from the agent
-            //agent->updateState(gameMap);
+            m_agent->updateState(m_map);
             Action action = m_agent->chooseAction();
             switch (action.direction) {
                 case UP:    dy = -1; break;
@@ -193,7 +194,7 @@ void Game::runEpisodes(int episodes) {
                 int newY = y + dy * speed;
 
                 timestep++;
-
+                
                 std::vector<double> food_rates = m_map->getFoodCounts();
 
                 // compute rates food_counts/timestep
@@ -233,9 +234,9 @@ void Game::runEpisodes(int episodes) {
             m_map->draw_map(m_renderer);
             m_organism->draw(m_renderer);
 
-            
             SDL_RenderPresent(m_renderer);
             SDL_Delay(10);
+
         }
 
         save_nn_model(0, 0, "test_model");
@@ -250,11 +251,14 @@ void Game::runEpisodes(int episodes) {
 
         SDL_Delay(500);
 
+        Logger::getInstance().log(LogType::DEBUG, "Final Timestep: " + std::to_string(timestep));
+
         timestep = 0;
+        Logger::getInstance().log(LogType::DEBUG, "-------- End of Episode " + std::to_string(i + 1) + " --------\n\n");
 
     }
 
-    m_currentState = State::MENU;
+    m_currentState = GameState::MENU;
 }
 
 
@@ -288,7 +292,7 @@ void Game::showMenu() {
             switch (event.type) {
                 case SDL_QUIT:
                     inMenu = false;
-                    m_currentState = State::QUIT;
+                    m_currentState = GameState::QUIT;
                     break;
                 case SDL_MOUSEBUTTONDOWN: {
                     int mx = event.button.x;
@@ -332,7 +336,7 @@ void Game::showMenu() {
                             m_totalEpisodes = std::stoi(episodeInput);
                             if (m_totalEpisodes > 0) {
                                 inMenu = false;
-                                m_currentState = State::RUNNING;
+                                m_currentState = GameState::RUNNING;
                             }
                         } catch (...) {}
                     }

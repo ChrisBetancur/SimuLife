@@ -27,7 +27,7 @@ class NeuralNetwork {
         uint32_t m_hidden_dim;
 
     
-        NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
+        /*NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
                       uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) :
                              optimizer(LEARNING_RATE, DECAY, 0.0, MOMENTUM),
                              m_nn_type(nn_type) {
@@ -67,6 +67,14 @@ class NeuralNetwork {
                 m_activations.push_back(Activation_ReLU_Leaky());
             }
 
+            // verify that the layer weights and biases are initialized correctly and not NaN, print if so and exit(1)
+            for (const auto& layer : m_layers) {
+                if (layer.m_weights.has_nan() || layer.m_biases.has_nan()) {
+                    std::cerr << "Error: Layer weights or biases contain NaN values." << std::endl;
+                    exit(1);
+                }
+            }
+
         }
 
         NeuralNetwork(const NeuralNetwork& other) 
@@ -82,6 +90,86 @@ class NeuralNetwork {
             for (const auto& layer : other.m_layers) {
                 m_layers.push_back(layer);
             }
+            for (const auto& activation : other.m_activations) {
+                m_activations.push_back(activation);
+            }
+        }*/
+
+        NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
+                    uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) :
+            optimizer(LEARNING_RATE, DECAY, 0.0, MOMENTUM),
+            m_nn_type(nn_type),
+            m_batch_size(batch_size),
+            m_input_dim(input_dim),
+            num_layers(num_m_layers),
+            m_output_dim(output_dim),
+            m_hidden_dim(hidden_dim)
+        {
+            // Validate parameters
+            if (num_m_layers < 3) {
+                throw std::invalid_argument("Number of layers must be at least 3");
+            }
+            if (hidden_dim < 1) {
+                throw std::invalid_argument("Hidden dimension must be at least 1");
+            }
+
+            // Reserve space upfront to avoid reallocations
+            m_layers.reserve(num_m_layers);
+            m_activations.reserve(num_m_layers);
+
+            // Create input layer directly in vector
+            m_layers.emplace_back(input_dim, hidden_dim, 0.0, 0.0001, 0.0, 0);
+            auto& input_layer = m_layers.back();
+            input_layer.set_weights(arma::mat(input_dim, hidden_dim, arma::fill::value(0.1)));
+            input_layer.set_biases(arma::mat(1, hidden_dim, arma::fill::value(0.1)));
+
+            // Create hidden layers
+            for (uint32_t i = 0; i < num_m_layers - 2; ++i) {
+                m_layers.emplace_back(hidden_dim, hidden_dim, 0.0, 0.0001, 0.0, 0);
+                auto& layer = m_layers.back();
+                layer.set_weights(arma::mat(hidden_dim, hidden_dim, arma::fill::value(0.1)));
+                layer.set_biases(arma::mat(1, hidden_dim, arma::fill::value(0.1)));
+            }
+
+            // Create output layer
+            m_layers.emplace_back(hidden_dim, output_dim, 0.0, 0.0001, 0.0, 0);
+            auto& output_layer = m_layers.back();
+            output_layer.set_weights(arma::mat(hidden_dim, output_dim, arma::fill::value(0.1)));
+            output_layer.set_biases(arma::mat(1, output_dim, arma::fill::value(0.1)));
+
+            // Create activations
+            for (uint32_t i = 0; i < num_m_layers; ++i) {
+                m_activations.emplace_back();
+            }
+
+            // Verify initialization
+            for (const auto& layer : m_layers) {
+                if (layer.m_weights.has_nan() || layer.m_biases.has_nan()) {
+                    std::cerr << "Error: Layer weights or biases contain NaN values." << std::endl;
+                    exit(1);
+                }
+            }
+        }
+
+        NeuralNetwork(const NeuralNetwork& other) :
+            optimizer(other.optimizer),
+            m_input_dim(other.m_input_dim),
+            m_nn_type(other.m_nn_type),
+            m_batch_size(other.m_batch_size),
+            num_layers(other.num_layers),
+            m_output_dim(other.m_output_dim),
+            m_hidden_dim(other.m_hidden_dim)
+        {
+            // Reserve space first
+            m_layers.reserve(other.m_layers.size());
+            m_activations.reserve(other.m_activations.size());
+            
+            // Copy layers using proper copy semantics
+            for (const auto& layer : other.m_layers) {
+                m_layers.push_back(layer);  // Uses fixed LayerDense copy constructor
+            }
+            
+            // Copy activations
             for (const auto& activation : other.m_activations) {
                 m_activations.push_back(activation);
             }
@@ -113,10 +201,7 @@ class NeuralNetwork {
         }
 
         void predict(double* input_data, double* output_data) {
-            //cleanup(); // Reset all layers and activations before prediction
-            // convert sample to arma::mat
-            
-                // Safety checks
+
             if (input_data == nullptr) {
                 std::cerr << "Error: input_data is null" << std::endl;
                 return;
@@ -127,23 +212,8 @@ class NeuralNetwork {
                 return;
             }
 
-            /*if (output_data == nullptr) {
-                std::cerr << "Error: output_data is null" << std::endl;
-                return;
-            }
-
-            if (m_input_dim == 0 || m_batch_size == 0) {
-                std::cerr << "Error: Invalid network dimensions" << std::endl;
-                return;
-            }*/
-
-
-            // Create arma::mat from the copied data
-            //arma::mat inputs(input_data, m_input_dim, m_batch_size, true, true);
-
             arma::mat inputs(input_data, m_input_dim, m_batch_size, true);
             inputs = inputs.t(); // Transpose to match the expected input shape
-
 
             for (int i = 0; i < m_layers.size(); ++i) {
                 m_layers[i].forward(inputs);
@@ -151,6 +221,7 @@ class NeuralNetwork {
 
                 // set inputs for next layer
                 inputs = m_activations[i].m_output;
+                // print check
             }
 
 

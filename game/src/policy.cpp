@@ -1,4 +1,6 @@
 #include <policy.h>
+#include <logger.h>
+#include <sstream>
 
 // Policy will help agent decide what action to take
 EpsilonGreedyPolicy::EpsilonGreedyPolicy(double epsilon, double decay_rate, double min_epsilon) : 
@@ -110,6 +112,14 @@ int BoltzmannPolicy::selectAction(double* q_values) {
             return static_cast<int>(i);
         }
     }
+
+    std::ostringstream ss;
+    ss << "Boltzmann Policy Probs: [";
+    for (size_t i = 0; i < probs.size(); ++i) {
+        ss << probs[i] << (i+1<probs.size() ? ", " : "");
+    }
+    ss << "]"<<std::endl;
+    Logger::getInstance().log(LogType::DEBUG, ss.str());
         
     return 0;  // Fallback
 }
@@ -122,6 +132,14 @@ Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state)
     // Get Q-values from neural network
     predict_nn(id, nn_type, input_data, q_values);
     //delete[] input_data;
+
+
+
+    Logger::getInstance().log(LogType::DEBUG, "Boltzmann Policy Q-Values: " + 
+        std::to_string(q_values[0]) + ", " + 
+        std::to_string(q_values[1]) + ", " + 
+        std::to_string(q_values[2]) + ", " + 
+        std::to_string(q_values[3]));
     
     // Create action object
     Action action;
@@ -130,14 +148,19 @@ Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state)
     // Update temperature
     decayTemperature();
 
-    //delete[] q_values;
+    Logger::getInstance().log(LogType::DEBUG, "Selected Action: " + 
+        std::to_string(static_cast<int>(action.direction)) + 
+        " with Temperature: " + std::to_string(m_temperature));
 
     return action;
 }
 
 // Update temperature (call after each action selection)
 void BoltzmannPolicy::decayTemperature() {
-    m_temperature = std::max(m_min_temperature, m_temperature * m_decay_rate);
+    if (++ m_decay_counter % m_decay_interval == 0) {
+        m_temperature = std::max(m_min_temperature, m_temperature * m_decay_rate);
+    }
+    
 }
 
 // Get current temperature

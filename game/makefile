@@ -2,7 +2,7 @@
 CXX := g++
 
 # Compiler flags
-CXXFLAGS := -g -O0 -std=c++17 -Wall -Iinclude \
+CXXFLAGS := -fsanitize=address -g -O0 -std=c++17 -Wall -Iinclude \
             -I$(shell brew --prefix armadillo)/include \
             -I$(shell brew --prefix sdl2)/include/SDL2 \
             -I$(shell brew --prefix sdl2_ttf)/include/SDL2
@@ -33,7 +33,7 @@ all: $(TARGET)
 # Link object files to create the final executable
 $(TARGET): $(OBJECTS)
 	@mkdir -p $(BINDIR)
-	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS) -lnn_api
+	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS) -lnn_api -fsanitize=address
 
 # Compile source files into object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp

@@ -150,123 +150,62 @@ std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, 
         case RIGHT: dx = +1; break;
     }
 
-    for (int i = 0; i < depth + 1; ++i) {
-        for (int j = CELL_SIZE * i; j < CELL_SIZE * (i + 1); ++j) {
-            int newX = x + dx * j;
-            int newY = y + dy * j;
+    int food_min = 4; // Minimum food count to consider a sector
 
-            int x_min = 0;
-            int x_max = 0;
+    for (int i = 0; i < depth; ++i) {
 
-            int y_min = 0;
-            int y_max = 0;
+        CellType cell_type = EMPTY;
 
-            int scope = org_size;
+        int food_count = 0;
 
-            switch (facing) {
-                case UP:
-                    x_min = x - scope;
-                    x_max = x + scope;
+        for (int j = 0; j < org_size; ++j) {
+            for (int k = 0; k < CELL_SIZE; ++k) {
+                int newX = x + dx * (i * org_size + j) + k;
+                int newY = y + dy * (i * org_size + j) + k;
 
-                    // reduce min and max if out of bounds
-                    if (x_min < 0) {
-                        x_min = 0;
-                    }
-                    if (x_max >= width) {
-                        x_max = width - 1;
-                    }
+                if (newX < 0 || newX >= width || newY < 0 || newY >= height) {
+                    cell_type = WALL; // Out of bounds is considered a wall
                     break;
-                case DOWN:  
-                    x_min = x - scope;
-                    x_max = x + scope;
-
-                    // reduce min and max if out of bounds
-                    if (x_min < 0) {
-                        x_min = 0;
-                    }
-                    if (x_max >= width) {
-                        x_max = width - 1;
-                    }
-                    break;
-                case LEFT:
-                    y_min = y - scope;
-                    y_max = y + scope;
-
-                    // reduce min and max if out of bounds
-                    if (y_min < 0) {
-                        y_min = 0;
-                    }
-                    if (y_max >= height) {
-                        y_max = height - 1;
-                    }
-                    break;
-                case RIGHT: 
-                    y_min = y - scope;
-                    y_max = y + scope;
-
-                    // reduce min and max if out of bounds
-                    if (y_min < 0) {
-                        y_min = 0;
-                    }
-                    if (y_max >= height) {
-                        y_max = height - 1;
-                    }
-                    break;
-            }
-
-
-            if (x_min != 0) {
-                for (int k = x_min; k < x_max; ++k) {
-
-
-                    // Check for wall, cannot see beyond wall
-                    if (grid[newY][k] != nullptr && grid[newY][k]->getType() == WALL) {
-                        cells.push_back(WALL);
-                        return cells;
-                    }
-                    // Check for food
-                    if (grid[newY][k] != nullptr && grid[newY][k]->getType() == FOOD) {
-
-                        cells.push_back(FOOD);
-                        continue;
-                    }
-                    // Check for organism
-                    if (grid[newY][k] != nullptr && grid[newY][k]->getType() == ORGANISM) {
-                        cells.push_back(ORGANISM);
-                        continue;
-                    }
-
                 }
-            }
-            else {
-                for (int k = y_min; k < y_max; ++k) {
-                    // Check for wall, cannot see beyond the wall
-                    if (grid[k][newX] != nullptr && grid[k][newX]->getType() == WALL) {
-                        cells.push_back(WALL);
 
-                        return cells;
+                if (grid[newY][newX] != nullptr) {
+                    if (grid[newY][newX]->getType() == WALL && food_count < food_min) {
+                        cell_type = WALL;
                     }
-                    // Check for food
-                    if (grid[k][newX] != nullptr && grid[k][newX]->getType() == FOOD) {
-                        cells.push_back(FOOD);
-                        continue;
+                    else {
+                        cell_type = FOOD;
+                        if (cell_type == FOOD) {
+                            food_count++;
+                        }
                     }
-                    // Check for organism
-                    if (grid[k][newX] != nullptr && grid[k][newX]->getType() == ORGANISM) {
-                        cells.push_back(ORGANISM);
-                        continue;
-                    }
-                    // Check for empty
-                    /*if (grid[k][newX] == nullptr) {
-                        cells.push_back(EMPTY);
-                        continue;
-                    }*/
-    
-                
                 }
+
             }
         }
+
+        cells.push_back(cell_type);  
     }
+
+    // print cells size
+    std::cout << "Cells size: " << cells.size() << std::endl;
+    // print cells content, dont print number, print the enum name
+    for (const auto& cell : cells) {
+        switch (cell) {
+            case EMPTY:     std::cout << "EMPTY "; break;
+            case WALL:      std::cout << "WALL "; break;
+            case FOOD:      std::cout << "FOOD "; break;
+            case ORGANISM:  std::cout << "ORGANISM "; break;
+        }
+    }
+
+    std::string direction_name;
+    switch (facing) {
+        case UP:    direction_name = "UP"; break;
+        case DOWN:  direction_name = "DOWN"; break;
+        case LEFT:  direction_name = "LEFT"; break;
+        case RIGHT: direction_name = "RIGHT"; break;
+    }
+    std::cout << "Vision for direction " << direction_name << std::endl;
 
     return cells;
 }
@@ -276,17 +215,24 @@ std::vector<double> Map::getFoodCounts() const {
 
     food_counts.resize(9, 0); // Initialize with 0s
 
+    if (width == 0 || height == 0) return food_counts; // Handle empty map case
+
+    // Calculate sector sizes safely
+    const int sector_width = std::max(1, width / 3);
+    const int sector_height = std::max(1, height / 3);
+
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-            // given the width and height of the map, calculate the sector
-            int sector_x = j / (width / 3);
-            int sector_y = i / (height / 3);
+            // Calculate sector with bounds checking
+            int sector_x = std::min(j / sector_width, 2);
+            int sector_y = std::min(i / sector_height, 2);
             int sector_index = sector_y * 3 + sector_x;
             
-            if (grid[i][j] != nullptr && grid[i][j]->getType() == FOOD) {
-                food_counts[sector_index]++;
+            if (sector_index >= 0 && sector_index < 9) {
+                if (grid[i][j] != nullptr && grid[i][j]->getType() == FOOD) {
+                    food_counts[sector_index]++;
+                }
             }
-
         }
     }
 

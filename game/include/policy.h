@@ -27,9 +27,11 @@ class EpsilonGreedyPolicy {
 
 class BoltzmannPolicy {
 private:
-    double m_temperature;      // Exploration parameter (tau)
-    double m_decay_rate;       // Temperature decay rate
-    double m_min_temperature;  // Minimum temperature value
+    double m_temperature;
+    double m_decay_rate;
+    int    m_decay_interval;
+    int    m_decay_counter;
+    double m_min_temperature;
     std::random_device rd;
     std::mt19937 rng;
     std::uniform_real_distribution<double> uniform_dist;
@@ -39,12 +41,18 @@ private:
 public:
     BoltzmannPolicy(double initial_temp = 1.0, 
                     double decay_rate = 0.9995,
-                    double min_temp = 0.1)
+                    double min_temp = 0.1,
+                    int decay_interval = 15)
         : m_temperature(initial_temp),
           m_decay_rate(decay_rate),
           m_min_temperature(min_temp),
           rng(rd()),
-          uniform_dist(0.0, 1.0) {}
+          uniform_dist(0.0, 1.0),
+          m_decay_interval(decay_interval),
+          m_decay_counter(0) {
+            std::cout << "Boltzmann Policy initialized with temperature: " 
+                      << m_temperature << std::endl;
+          }
 
     std::vector<double> computeProbabilities(double* q_values);
 

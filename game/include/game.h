@@ -24,8 +24,8 @@ class Game {
         Agent* m_agent;
         Trainer* m_trainer;
         
-        enum class State { MENU, RUNNING, QUIT };
-        State m_currentState;
+        enum class GameState { MENU, RUNNING, QUIT };
+        GameState m_currentState;
         
         int m_totalEpisodes;
         int m_currentEpisode;

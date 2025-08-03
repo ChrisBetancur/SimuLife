@@ -14,7 +14,7 @@ LayerDense::LayerDense(uint32_t n_inputs, uint32_t n_neurons, double weight_regu
 
 void LayerDense::reset() {
     //m_inputs.reset();
-    m_output.reset();
+    //m_output.reset();
 }
 
 void LayerDense::set_weights(arma::mat weights) {
@@ -62,4 +62,35 @@ void LayerDense::backward(arma::mat dvalues) {
 
     m_dweights = arma::clamp(m_dweights, -1.0, 1.0);
     m_dbiases = arma::clamp(m_dbiases, -1.0, 1.0);
+
+    // Log the gradients
+    /*if (m_gradient_counter < 100) {
+        double grad_norm = std::sqrt(
+            arma::accu(arma::square(m_dweights)) +
+            arma::accu(arma::square(m_dbiases))
+            );
+        Logger::getInstance().log(LogType::DEBUG, "Gradient Norm: " + std::to_string(grad_norm));
+        m_gradient_counter++;
+    }*/
 }
+
+    LayerDense::LayerDense(const LayerDense& other) :
+        n_inputs(other.n_inputs),
+        n_neurons(other.n_neurons),
+        m_weights(other.m_weights),
+        m_biases(other.m_biases),
+        m_weight_regularizer_L1(other.m_weight_regularizer_L1),
+        m_weight_regularizer_L2(other.m_weight_regularizer_L2),
+        m_bias_regularizer_L1(other.m_bias_regularizer_L1),
+        m_bias_regularizer_L2(other.m_bias_regularizer_L2),
+        m_velocity_weights(other.m_velocity_weights),
+        m_velocity_biases(other.m_velocity_biases),
+        gradient_counter(other.gradient_counter)
+    {
+        // Explicitly copy matrices using Armadillo's safe copy
+        m_inputs = other.m_inputs;
+        m_output = other.m_output;
+        m_dweights = other.m_dweights;
+        m_dbiases = other.m_dbiases;
+        m_dinputs = other.m_dinputs;
+    }

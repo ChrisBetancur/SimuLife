@@ -1,5 +1,6 @@
 #include <rl_utils.h>
 #include <stats.h>
+#include <logger.h>
 
 double computeExtrinsicReward(State state, Action action) {
     const float WALL_PENALTY = -1.0f;    // Base penalty for wall collision
@@ -70,6 +71,12 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     double* predictor_q_values = new double[4]; // Assuming 4 actions
     predict_nn(id, 2, input_data, predictor_q_values); 
 
+    if (std::isnan(predictor_q_values[0]) || std::isnan(predictor_q_values[1]) ||
+        std::isnan(predictor_q_values[2]) || std::isnan(predictor_q_values[3])) {
+        std::cerr << "Error: NaN values in predictor Q-values" << std::endl;
+        exit(1);
+    }
+
     nn_type = 3; // RND target
     double* target_q_values = new double[4]; // Assuming 4 actions
     predict_nn(id, 3, input_data, target_q_values);
@@ -91,13 +98,20 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
     double z = stats::peek_z_score(intrinsic_reward);
 
+    Logger::getInstance().log(LogType::DEBUG, "Z-Score: " + std::to_string(z));
+
+
     stats::update_stats(intrinsic_reward);
     
     double extrinsic_reward = computeExtrinsicReward(state, action);
 
+    Logger::getInstance().log(LogType::DEBUG, "Extrinsic Reward: " + std::to_string(extrinsic_reward));
+
     double beta = stats::current_beta();
 
     double total_reward = extrinsic_reward + beta * z;
+
+    Logger::getInstance().log(LogType::DEBUG, "Total Reward: " + std::to_string(total_reward) + " (Beta: " + std::to_string(beta) + ")");
 
     double max_q_value = target_q_values[0];
 
@@ -115,11 +129,6 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
 
     train_nn(0, 2, target_q_values);
-
-    //delete[] input_data;
-    //delete[] predictor_q_values;
-    //delete[] target_q_values;
-
 
 
     return total_reward;
@@ -142,6 +151,8 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
             input_data[2 + i] = food_rates[i]; // Assuming food_rates is a vector of size 9
         }
 
+        // print input data where each array slot is defined with the name
+
 
         return input_data;  // Return the prepared input data
 
@@ -157,8 +168,16 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     input_data[3] = static_cast<double>(state.genome.size);
     input_data[4] = static_cast<double>(state.energy_lvl);
 
+    // 1. i=0, 4<25, [8]
+    // 2. i=4, 8<25, [12]
+    // 3. i=8, 12<25, [16]
+    // 4. i=12, 16<25, [20]
+    // 5. i=16, 20<25, [24]
+    // 6. i=20, 24<25, [28]
+
     // Add vision data
-    for (size_t i = 0; i < state.vision.size(); i += 4) {
+    size_t i;
+    for (i = 0; i + 4 < state.vision.size(); i += 4) {
         if (state.vision[i] == EMPTY) {
             input_data[5 + i] = 1.0; // One-hot encoding for EMPTY
             input_data[5 + i + 1] = 0.0;

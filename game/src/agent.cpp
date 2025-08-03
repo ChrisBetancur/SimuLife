@@ -4,7 +4,8 @@
 #include <stats.h>
 #include <iostream>
 #include <iomanip>
-#include <algorithm>   // for std::clamp
+#include <algorithm>
+#include <logger.h>
 
 
 #define RND_DIRECTORY "rnd_models"
@@ -58,6 +59,7 @@ void Agent::updateState(Map* map) {
 
     int x, y;
     m_organism->getPosition(x, y);
+    
     // Get the vision of the organism
     m_state.vision = map->getVision(x, y, m_organism->getDirection(), m_organism->getGenome().vision_depth, m_organism->getGenome().size);
 
@@ -113,7 +115,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         //print check
         std::cout << "Initializing RND predictor neural network" << std::endl;
         // Initialize RND predictor neural network
-        init_nn(25, 4, 20, 4, 1, 2);
+        init_nn(11, 4, 20, 4, 1, 2);
     }
     else {
         std::cout << "Loading RND predictor neural network from: " << full_predictor_path << std::endl;
@@ -124,7 +126,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     if (!std::filesystem::exists(full_target_path)) {
 
         // Initialize RND target neural network
-        init_nn(25, 4, 20, 4, 1, 3);
+        init_nn(11, 4, 20, 4, 1, 3);
         randomize_weights(0, 3); // Randomize weights for the target network
     }
     else {
@@ -163,6 +165,15 @@ void Trainer::learn(State state, Action action, double reward) {
             best_action_index = i;
         }
     }
+
+    Logger::getInstance().log(LogType::DEBUG, "Learning Stage Q-Values: " + 
+        std::to_string(q_values[0]) + ", " + 
+        std::to_string(q_values[1]) + ", " + 
+        std::to_string(q_values[2]) + ", " + 
+        std::to_string(q_values[3]));
+
+    Logger::getInstance().log(LogType::DEBUG, "Best Action Index: " + std::to_string(best_action_index) +
+        ", Max Q-Value: " + std::to_string(max_q_value));
 
     // multiply q value with discount
     double target = reward + m_discount_factor * max_q_value;

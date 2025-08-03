@@ -97,6 +97,11 @@ bool read_model(const std::string& dirname, std::vector<LayerDense>& layers, NNI
             throw std::runtime_error("Path is not a directory: " + dirname);
         }
 
+        // 2. Check if metadata file exists
+        if (!fs::exists(fs::path(dirname) / "nn_info.bin")) {
+            throw std::runtime_error("Metadata file not found in directory: " + dirname);
+        }
+
         // 2. Read metadata
         std::ifstream meta_in(fs::path(dirname) / "nn_info.bin", std::ios::binary);
         meta_in.read(reinterpret_cast<char*>(&nn_info), sizeof(NNInfo_metadata));
