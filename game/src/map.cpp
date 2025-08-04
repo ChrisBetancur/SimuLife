@@ -1,5 +1,7 @@
 #include <map.h>
 #include <random>
+#include <tuple>
+#include <iostream>
 
 Map::Map(int w, int h) : width(w), height(h) {
     std::random_device rd;
@@ -137,14 +139,117 @@ void Map::draw_map(SDL_Renderer* renderer) {
     }
 }
 
+void Map::drawVision(SDL_Renderer* renderer) const {
+    /*SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+
+    int minX, minY, maxX, maxY;
+    std::tie(minX, minY, maxX, maxY) = org_vision;
+
+    // convert cell‐coords → pixel‐coords, and include xmax/ymax cell
+    SDL_Rect rect {
+        minX,
+        minY,
+        (maxX - minX) + 4,
+        (maxY - minY) + 4
+    };
+
+    SDL_RenderDrawRect(renderer, &rect);*/
+}
+
+std::vector<CellType> Map::getVisionBox(int x, int y,
+                                        Direction facing,
+                                        int depth,
+                                        int org_size) const
+{
+    // compute deltas for facing
+    int dx=0, dy=0;
+    switch(facing) {
+        case UP:    dy = -1; break;
+        case DOWN:  dy = +1; break;
+        case LEFT:  dx = -1; break;
+        case RIGHT: dx = +1; break;
+    }
+
+    // half‐width perpendicular to facing
+    int halfW = org_size;
+    // total length forward
+    int length = depth * org_size;
+
+    // bounding box coords
+    int xmin, xmax, ymin, ymax;
+    if (dx > 0) {              // → RIGHT
+        xmin = x + 1;
+        xmax = x + length;
+        ymin = y - halfW;
+        ymax = y + halfW;
+    }
+    else if (dx < 0) {         // ← LEFT
+        xmin = x - length;
+        xmax = x - 1;
+        ymin = y - halfW;
+        ymax = y + halfW;
+    }
+    else if (dy > 0) {         // ↓ DOWN
+        ymin = y + 1;
+        ymax = y + length;
+        xmin = x - halfW;
+        xmax = x + halfW;
+    }
+    else {                     // ↑ UP
+        ymin = y - length;
+        ymax = y - 1;
+        xmin = x - halfW;
+        xmax = x + halfW;
+    }
+
+    org_vision = std::make_tuple(xmin, ymin, xmax, ymax);
+
+    bool sawWall = false;
+    int foodCount = 0;
+
+    // scan box
+    for (int j = xmin; j <= xmax; ++j) {
+        for (int k = ymin; k <= ymax; ++k) {
+            if (j < 0 || j >= width || k < 0 || k >= height) {
+                sawWall = true;
+                continue;
+            }
+            auto* cell = grid[k][j];
+            if (!cell) continue;
+            if (cell->getType() == WALL) {
+                sawWall = true;
+            } else if (cell->getType() == FOOD) {
+                ++foodCount;
+            }
+        }
+    }
+
+    // decide cell‐type for the whole box
+    CellType result = EMPTY;
+    if (sawWall)       result = WALL;
+    else if (foodCount) result = FOOD;
+
+    // debug print
+    std::cout
+      << "BoxVision: sawWall=" << sawWall
+      << " foodCount=" << foodCount
+      << " → " << (result==WALL? "WALL":
+                   result==FOOD? "FOOD":"EMPTY")
+      << std::endl;
+
+    return { result };
+}
+
+
+
 std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, int org_size) const {
-    std::vector<CellType> cells;
+    return getVisionBox(x, y, facing, depth, org_size);
+    
+    /*std::vector<CellType> cells;
     int dx = 0, dy = 0;
 
     switch (facing) {
-        case UP:
-            dy = -1;
-            break;
+        case UP: dy = -1; break;
         case DOWN:  dy = +1; break;
         case LEFT:  dx = -1; break;
         case RIGHT: dx = +1; break;
@@ -152,16 +257,37 @@ std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, 
 
     int food_min = 4; // Minimum food count to consider a sector
 
+    //org_vision = getVisionCoordinates(x, y, facing, depth);
+    // in Map::getVision(...)
+    
+    org_vision = getVisionCoordinates(x, y, facing, depth, org_size);
+    if (org_vision.empty()) {
+        std::cerr << "Error: org_vision is empty!" << std::endl;
+        return cells; // Return empty vector if no vision rects
+    }
+    
+
+
     for (int i = 0; i < depth; ++i) {
 
         CellType cell_type = EMPTY;
 
         int food_count = 0;
 
-        for (int j = 0; j < org_size; ++j) {
-            for (int k = 0; k < CELL_SIZE; ++k) {
-                int newX = x + dx * (i * org_size + j) + k;
-                int newY = y + dy * (i * org_size + j) + k;
+        const auto& sector_bounds_tuple = org_vision[i]; // This is a std::tuple<int, int, int, int>
+
+        // Now, you can use std::get on 'sector_bounds_tuple'
+        int xmin = std::get<0>(sector_bounds_tuple);
+        int ymin = std::get<1>(sector_bounds_tuple);
+        int xmax = std::get<2>(sector_bounds_tuple);
+        int ymax = std::get<3>(sector_bounds_tuple);
+
+        for (int j = xmin; j < xmax; ++j) {
+            for (int k = ymin; k < ymax; ++k) {
+
+
+                int newX = j;
+                int newY = k;
 
                 if (newX < 0 || newX >= width || newY < 0 || newY >= height) {
                     cell_type = WALL; // Out of bounds is considered a wall
@@ -182,6 +308,9 @@ std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, 
 
             }
         }
+
+        // print food count
+        std::cout << "Food count in sector (" << i << "): " << food_count << std::endl;
 
         cells.push_back(cell_type);  
     }
@@ -207,7 +336,7 @@ std::vector<CellType> Map::getVision(int x, int y, Direction facing, int depth, 
     }
     std::cout << "Vision for direction " << direction_name << std::endl;
 
-    return cells;
+    return cells;*/
 }
 
 std::vector<double> Map::getFoodCounts() const {

@@ -6,6 +6,7 @@
 #include <food.h>
 #include <organism.h>
 #include <wall.h>
+#include <vector>
 
 #define CELL_SIZE 100 // Size of each cell in the grid
 
@@ -21,8 +22,15 @@ class Map {
         int width, height; // Dimensions of the map
         Sprite*** grid; // 2D array to represent the map
         int food_count = 0;
-        
 
+
+        // vector that contains the vision of the organism. tuple of (xmin, ymin, xmax, ymax)
+        mutable std::tuple<int, int, int, int> org_vision;
+
+        std::vector<CellType> getVisionBox(int x, int y,
+                                        Direction facing,
+                                        int depth,
+                                        int org_size) const;
     public:
 
         Map(int w, int h);
@@ -42,6 +50,9 @@ class Map {
         bool isWall(int x, int y) const;
 
         void draw_map(SDL_Renderer* renderer);
+
+        void drawVision(SDL_Renderer* renderer) const;
+        
 
         std::vector<CellType> getVision(int x, int y, Direction facing, int depth, int org_size) const;
 

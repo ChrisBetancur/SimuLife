@@ -106,6 +106,8 @@ void Game::run() {
     }
 }
 
+
+
 void Game::runEpisodes(int episodes) {
     bool policySelected = false;
 
@@ -180,6 +182,7 @@ void Game::runEpisodes(int episodes) {
             // Get the action from the agent
             m_agent->updateState(m_map);
             Action action = m_agent->chooseAction();
+            
             switch (action.direction) {
                 case UP:    dy = -1; break;
                 case DOWN:  dy = +1; break;
@@ -233,6 +236,7 @@ void Game::runEpisodes(int episodes) {
 
             m_map->draw_map(m_renderer);
             m_organism->draw(m_renderer);
+            m_map->drawVision(m_renderer);
 
             SDL_RenderPresent(m_renderer);
             SDL_Delay(10);
