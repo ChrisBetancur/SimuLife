@@ -2,58 +2,47 @@
 #include <stats.h>
 #include <logger.h>
 
-double computeExtrinsicReward(State state, Action action) {
-    const float WALL_PENALTY = -1.0f;    // Base penalty for wall collision
-    const float FOOD_REWARD = 1.0f;      // Base reward for food
-    double reward = 0.0f;
-    bool wall_in_path = false;
-    bool food_in_path = false;
+double computeExtrinsicReward(State state,
+                              Action action)
+{
+    int foodCount;
+    bool sawWall;
+    std::tie(foodCount, sawWall) = state.vision;
+    
+    const double WALL_PENALTY   = -1.0;   // big penalty if you run into or see a wall
+    const double FOOD_REWARD    = +1.0;   // reward per food in vision
+    const double ENERGY_WEIGHT  = 0.15;   // how strongly to weight energy
 
-    // Vision processing with distance weighting
-    for (int i = 0; i < state.vision.size(); ++i) {
-        // Immediate collision check (current cell)
-        if (i == 0) {
-            if (state.vision[i] == WALL) {
-                reward += WALL_PENALTY * 2.0f;  // Double penalty for direct collision
-                wall_in_path = true;
-            }
-            else if (state.vision[i] == FOOD) {
-                reward += FOOD_REWARD * 1.5f;    // Bonus for immediate food
-                food_in_path = true;
-            }
-            continue;
-        }
+    double reward = 0.0;
 
-        // Distance-weighted observations (closer = stronger signal)
-        float distance_weight = 1.0f / (i + 1);
-        
-        if (state.vision[i] == WALL) {
-            // Only penalize if no food exists in same direction
-            if (!food_in_path) {
-                reward += WALL_PENALTY * distance_weight * 0.8f;
-                wall_in_path = true;
-            }
-        }
-        else if (state.vision[i] == FOOD) {
-            reward += FOOD_REWARD * distance_weight;
-            food_in_path = true;
-            
-            // Risk-taking bonus: approaching wall-containing path with food
-            if (wall_in_path) {
-                reward += 0.3f * distance_weight;  // Encourage calculated risks
-            }
-        }
-    }
-
-    // Energy-based survival incentives
+    // 1) Energy‐level bonus / starvation penalty
     if (state.energy_lvl <= 0) {
-        reward -= 1.0f;  // Starvation penalty
+        reward -= 1.0;                        // starving is bad
     } else {
-        reward += 0.15f * (state.energy_lvl / MAX_ENERGY);  // Energy conservation
+        reward += ENERGY_WEIGHT
+                * (state.energy_lvl / MAX_ENERGY);
     }
 
-    return std::clamp(reward, -1.0, 1.0);
+    // 2) “Vision”‐based wall penalty
+    if (sawWall) {
+        reward += WALL_PENALTY;               // discourage bumping into walls
+    }
+
+    // 3) “Vision”‐based food reward
+    //    You might cap foodCount so you don’t get huge spikes;
+    //    here we reward each food you see, up to e.g. 3 units
+    const int   FOOD_COUNT_CAP = 3;
+    int visibleFood = std::min(foodCount, FOOD_COUNT_CAP);
+    reward += FOOD_REWARD * visibleFood;
+
+    // 4) Optional: small per‐step living cost to encourage efficiency
+    const double STEP_COST = -0.01;
+    reward += STEP_COST;
+
+    // clamp to [-1,1]
+    return std::clamp(reward, -1.0, +1.0);
 }
+
 
 double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd) {
 
@@ -158,7 +147,7 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
 
     }
 
-    size_t input_size = 4 + 1 + MAX_ORGANISM_VISION_DEPTH * 4; // 4 inputs represent one cell, one hot encode each cell
+    size_t input_size = 4 + 1 + 2; // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
     double* input_data = new double[input_size];  // Allocate as a single array
 
     // Populate data
@@ -168,6 +157,9 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     input_data[3] = static_cast<double>(state.genome.size);
     input_data[4] = static_cast<double>(state.energy_lvl);
 
+    input_data[5] = static_cast<double>(std::get<0>(state.vision)); // food_count
+    input_data[6] = static_cast<double>(std::get<1>(state.vision)); // is_wall
+    
     // 1. i=0, 4<25, [8]
     // 2. i=4, 8<25, [12]
     // 3. i=8, 12<25, [16]
@@ -176,7 +168,7 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     // 6. i=20, 24<25, [28]
 
     // Add vision data
-    size_t i;
+    /*size_t i;
     for (i = 0; i + 4 < state.vision.size(); i += 4) {
         if (state.vision[i] == EMPTY) {
             input_data[5 + i] = 1.0; // One-hot encoding for EMPTY
@@ -199,7 +191,7 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
             input_data[5 + i + 2] = 0.0;
             input_data[5 + i + 3] = 1.0; // One-hot encoding for ORGANISM
         }
-    }
+    }*/
 
     return input_data;
     

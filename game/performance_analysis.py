@@ -109,7 +109,7 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
 
     # Extrinsic
     axs[0].plot(episode_nums, extrinsic_rewards, label='Extrinsic')
-    if mov_avg:
+    if mov_avg.size:
         axs[0].plot(mov_x, mov_avg, label=f'MA (window={window})')
     axs[0].set(title='Extrinsic Reward per Episode', xlabel='Episode', ylabel='Reward')
     axs[0].legend()

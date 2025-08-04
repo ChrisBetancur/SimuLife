@@ -14,7 +14,7 @@
 struct State {
     Genome genome;
     double energy_lvl;
-    std::vector<CellType> vision;
+    std::tuple<int, bool> vision;
 };
 
 struct Action {

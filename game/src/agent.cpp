@@ -59,7 +59,7 @@ void Agent::updateState(Map* map) {
 
     int x, y;
     m_organism->getPosition(x, y);
-    
+
     // Get the vision of the organism
     m_state.vision = map->getVision(x, y, m_organism->getDirection(), m_organism->getGenome().vision_depth, m_organism->getGenome().size);
 
@@ -88,7 +88,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         std::filesystem::create_directories(model_path);
         std::cout << "Creating new model directory: " << model_path << std::endl;
         // Initialize online neural network with default parameters
-        init_nn(25, 4, 20, 4, 1, 0); // 20 neurons for the vision alone since we have 5 cells in the vision and each cell has 4 possible states
+        init_nn(7, 4, 20, 4, 1, 0); // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
     }
     else {
         const char* model_path_cstr = model_path.c_str();
@@ -96,7 +96,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         uint32_t id = load_nn_model(model_path_cstr, 0);
     }
     // Initialize target neural network
-    init_nn(25, 4, 20, 4, 1, 1);
+    init_nn(7, 4, 20, 4, 1, 1);
     // copy the online nn to the target nn
     update_target_nn(0, 0);
 
