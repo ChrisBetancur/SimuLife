@@ -47,6 +47,10 @@ class Map {
 
         bool isWall(int x, int y) const;
 
+        int getWallPosX(int x, int y) const;
+        
+        int getWallPosY(int x, int y) const;
+
         void draw_map(SDL_Renderer* renderer);
 
         void drawVision(SDL_Renderer* renderer) const;

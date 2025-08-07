@@ -7,19 +7,13 @@
 #include <algorithm>
 #include <logger.h>
 
-
 #define RND_DIRECTORY "rnd_models"
-
-
-
 
 Agent::Agent(Organism* organism):
     m_organism(organism) {  // Dynamically allocate
 
     m_epsilon_policy = nullptr;
     m_boltzmann_policy = nullptr;
-    //m_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06); // Initialize policy
-    //m_policy = new BoltzmannPolicy(1.0, 0.9995, 0.1); // Initialize Boltzmann policy
 }
 
 void Agent::setPolicy(PolicyType policy_type) {
@@ -37,7 +31,7 @@ void Agent::setPolicy(PolicyType policy_type) {
     if (policy_type == PolicyType::EPSILON_GREEDY) {
         m_epsilon_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06);
     } else if (policy_type == PolicyType::BOLTZMANN) {
-        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9995, 0.1);
+        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9995, 0.25);
     } else {
         throw std::invalid_argument("Unknown policy type");
     }
@@ -88,7 +82,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         std::filesystem::create_directories(model_path);
         std::cout << "Creating new model directory: " << model_path << std::endl;
         // Initialize online neural network with default parameters
-        init_nn(7, 4, 20, 4, 1, 0); // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
+        init_nn(7, 4, 64, 4, 1, 0); // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
     }
     else {
         const char* model_path_cstr = model_path.c_str();
@@ -96,7 +90,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         uint32_t id = load_nn_model(model_path_cstr, 0);
     }
     // Initialize target neural network
-    init_nn(7, 4, 20, 4, 1, 1);
+    init_nn(7, 4, 64, 4, 1, 1);
     // copy the online nn to the target nn
     update_target_nn(0, 0);
 
@@ -115,7 +109,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         //print check
         std::cout << "Initializing RND predictor neural network" << std::endl;
         // Initialize RND predictor neural network
-        init_nn(11, 4, 20, 4, 1, 2);
+        init_nn(11, 4, 64, 4, 1, 2);
     }
     else {
         std::cout << "Loading RND predictor neural network from: " << full_predictor_path << std::endl;
@@ -126,7 +120,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     if (!std::filesystem::exists(full_target_path)) {
 
         // Initialize RND target neural network
-        init_nn(11, 4, 20, 4, 1, 3);
+        init_nn(11, 4, 64, 4, 1, 3);
         randomize_weights(0, 3); // Randomize weights for the target network
     }
     else {
@@ -137,6 +131,10 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     }
 
     //exit(1);
+}
+
+Trainer::~Trainer() {
+    // Destructor
 }
 
 void Trainer::learn(State state, Action action, double reward) {
@@ -185,6 +183,16 @@ void Trainer::learn(State state, Action action, double reward) {
 
     //delete[] input_data;
     //delete[] q_values;
+}
+
+void Trainer::updateReplayBuffer(State state) {
+    if (replay_buffer.size() < replay_buffer_size) {
+        replay_buffer.push_back(state);
+    } else {
+        // delete the oldest state and add the new one
+        replay_buffer.erase(replay_buffer.begin());
+        replay_buffer.push_back(state);
+    }
 }
 
 

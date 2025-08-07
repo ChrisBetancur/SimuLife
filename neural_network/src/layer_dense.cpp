@@ -33,6 +33,7 @@ void LayerDense::forward(arma::mat inputs) {
         std::cerr << "Weights rows: " << m_weights.n_rows << std::endl;
         return;
     }
+
     m_output = inputs * m_weights;
     m_output.each_row() += m_biases;
 }
@@ -74,23 +75,27 @@ void LayerDense::backward(arma::mat dvalues) {
     }*/
 }
 
-    LayerDense::LayerDense(const LayerDense& other) :
-        n_inputs(other.n_inputs),
-        n_neurons(other.n_neurons),
-        m_weights(other.m_weights),
-        m_biases(other.m_biases),
-        m_weight_regularizer_L1(other.m_weight_regularizer_L1),
-        m_weight_regularizer_L2(other.m_weight_regularizer_L2),
-        m_bias_regularizer_L1(other.m_bias_regularizer_L1),
-        m_bias_regularizer_L2(other.m_bias_regularizer_L2),
-        m_velocity_weights(other.m_velocity_weights),
-        m_velocity_biases(other.m_velocity_biases),
-        gradient_counter(other.gradient_counter)
+    LayerDense::LayerDense(const LayerDense& other)
+    : n_inputs               (other.n_inputs)
+    , n_neurons              (other.n_neurons)
+    , m_output               (other.m_output)
+    , m_inputs               (other.m_inputs)
+    , m_dweights             (other.m_dweights)
+    , m_dbiases              (other.m_dbiases)
+    , m_dinputs              (other.m_dinputs)
+    , m_weights              (other.m_weights)
+    , m_biases               (other.m_biases)
+    , m_velocity_weights     (other.m_velocity_weights)
+    , m_velocity_biases      (other.m_velocity_biases)
+    , m_weight_momentums     (other.m_weight_momentums)
+    , m_weight_cache         (other.m_weight_cache)
+    , m_bias_momentums       (other.m_bias_momentums)
+    , m_bias_cache           (other.m_bias_cache)
+    , gradient_counter       (other.gradient_counter)
+    , m_weight_regularizer_L1(other.m_weight_regularizer_L1)
+    , m_weight_regularizer_L2(other.m_weight_regularizer_L2)
+    , m_bias_regularizer_L1  (other.m_bias_regularizer_L1)
+    , m_bias_regularizer_L2  (other.m_bias_regularizer_L2)
     {
-        // Explicitly copy matrices using Armadillo's safe copy
-        m_inputs = other.m_inputs;
-        m_output = other.m_output;
-        m_dweights = other.m_dweights;
-        m_dbiases = other.m_dbiases;
-        m_dinputs = other.m_dinputs;
+        // All members initialized above; no body needed
     }

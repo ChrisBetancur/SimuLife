@@ -24,6 +24,13 @@ class LayerDense {
         arma::mat m_velocity_weights;
         arma::mat m_velocity_biases;
 
+        // For adam optimizer
+        arma::mat m_weight_momentums;  // first moment (⎯v)
+        arma::mat m_weight_cache;      // second moment (⎯s)
+        arma::rowvec m_bias_momentums;
+        arma::rowvec m_bias_cache;
+
+
         int gradient_counter = 0;
 
         // lambda hyperparams for regularization

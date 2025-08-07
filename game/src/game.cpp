@@ -211,20 +211,24 @@ void Game::runEpisodes(int episodes) {
                 // only move if there is no wall at the target
                 if (!m_map->isWall(newX, newY)) {
                     // print check
-                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled);
+                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled, m_trainer->getReplayBuffer(), 
+                        false, x, y, m_organism->getDirection(), m_map->getWallPosX(newX, newY), m_map->getWallPosY(newX, newY));
                     // passed reward print check
 
                     running = m_organism->move(dx, dy);
                     m_agent->updateState(m_map);
+                    m_trainer->updateReplayBuffer(m_agent->getState());
                     m_trainer->learn(m_agent->getState(), action, reward); // reward is 0 for now
                 }
                 else {
                     // print check
-                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled);
+                    double reward = computeReward(m_agent->getState(), action, food_rates, sector, m_rndEnabled, m_trainer->getReplayBuffer(), 
+                        true, x, y, m_organism->getDirection(), m_map->getWallPosX(newX, newY), m_map->getWallPosX(newX, newY));
                     // passed reward print check
 
                     running = m_organism->move(0, 0);
                     m_agent->updateState(m_map);
+                    m_trainer->updateReplayBuffer(m_agent->getState());
                     m_trainer->learn(m_agent->getState(), action, reward); // reward is 0 for now
                 }
             }

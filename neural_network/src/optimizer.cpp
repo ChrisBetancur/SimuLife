@@ -31,3 +31,60 @@ void Optimizer_SGD::post_update_params() {
     // Reset decay
     m_step += 1;
 }
+
+Optimizer_Adam::Optimizer_Adam(double learning_rate,
+                               double beta1,
+                               double beta2,
+                               double eps,
+                               double decay,
+                               double step)
+    : m_learning_rate(learning_rate),
+      m_decay(decay),
+      m_step(step),
+      m_beta1(beta1),
+      m_beta2(beta2),
+      m_eps(eps) {
+}
+
+void Optimizer_Adam::pre_update_params() {
+    m_step += 1;
+    if (m_decay) {
+        m_learning_rate = m_learning_rate / (1.0 + m_decay * m_step);
+    }
+}
+
+void Optimizer_Adam::update(LayerDense &layer) {
+    // If layer momentums not initialized, set to zero mats
+    if (layer.m_weight_momentums.n_elem == 0) {
+        layer.m_weight_momentums = arma::zeros<arma::mat>(layer.m_weights.n_rows, layer.m_weights.n_cols);
+        layer.m_weight_cache     = arma::zeros<arma::mat>(layer.m_weights.n_rows, layer.m_weights.n_cols);
+        layer.m_bias_momentums   = arma::zeros<arma::rowvec>(layer.m_biases.n_cols);
+        layer.m_bias_cache       = arma::zeros<arma::rowvec>(layer.m_biases.n_cols);
+    }
+
+    // Update momentums with current gradients
+    layer.m_weight_momentums = m_beta1 * layer.m_weight_momentums + (1.0 - m_beta1) * layer.m_dweights.t();
+    layer.m_bias_momentums   = m_beta1 * layer.m_bias_momentums   + (1.0 - m_beta1) * layer.m_dbiases;
+
+    // Update cache (RMS prop)
+    layer.m_weight_cache = m_beta2 * layer.m_weight_cache + (1.0 - m_beta2) * arma::square(layer.m_dweights.t());
+    layer.m_bias_cache   = m_beta2 * layer.m_bias_cache   + (1.0 - m_beta2) * arma::square(layer.m_dbiases);
+
+
+    // Correct bias in moment estimates
+    arma::mat weight_momentums_corrected = layer.m_weight_momentums / (1.0 - std::pow(m_beta1, m_step));
+    arma::rowvec bias_momentums_corrected = layer.m_bias_momentums   / (1.0 - std::pow(m_beta1, m_step));
+    arma::mat weight_cache_corrected      = layer.m_weight_cache     / (1.0 - std::pow(m_beta2, m_step));
+    arma::rowvec bias_cache_corrected     = layer.m_bias_cache       / (1.0 - std::pow(m_beta2, m_step));
+
+    // Parameter update
+    layer.m_weights -= m_learning_rate * weight_momentums_corrected /
+                       (arma::sqrt(weight_cache_corrected) + m_eps);
+
+    layer.m_biases  -= m_learning_rate * bias_momentums_corrected   /
+                       (arma::sqrt(bias_cache_corrected)   + m_eps);
+}
+
+void Optimizer_Adam::post_update_params() {
+    //m_step += 1;
+}

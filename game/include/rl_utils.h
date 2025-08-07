@@ -26,9 +26,9 @@ enum class PolicyType {
     BOLTZMANN
 };
 
-double computeExtrinsicReward(State state, Action action);
+double computeExtrinsicReward(State state, Action action, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y, Direction dir, int wall_pos_x = -1, int wall_pos_y = -1);
 
-double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd = false);
+double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y, Direction dir, int wall_pos_x = -1, int wall_pos_y = -1);
 
 double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector);
 

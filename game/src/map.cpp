@@ -128,6 +128,26 @@ bool Map::isWall(int x, int y) const {
     return (s != nullptr && s->getType() == WALL);
 }
 
+int Map::getWallPosX(int x, int y) const {
+    if (x < 0 || x >= width || y < 0 || y >= height)
+        return -1; // Invalid position
+    Sprite* s = grid[y][x];
+    if (s != nullptr && s->getType() == WALL) {
+        return x;
+    }
+    return -1; // No wall at this position
+}
+
+int Map::getWallPosY(int x, int y) const {
+    if (x < 0 || x >= width || y < 0 || y >= height)
+        return -1; // Invalid position
+    Sprite* s = grid[y][x];
+    if (s != nullptr && s->getType() == WALL) {
+        return y;
+    }
+    return -1; // No wall at this position
+}
+
 void Map::draw_map(SDL_Renderer* renderer) {
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
@@ -222,6 +242,13 @@ std::tuple<int, bool> Map::getVision(int x, int y,
                 ++foodCount;
             }
         }
+    }
+
+    // print if we saw a wall or not
+    if (sawWall) {
+        std::cout << "Saw a wall in vision at (" << x << ", " << y << ") facing " 
+                  << facing << " with depth " << depth
+                  << " and org_size " << org_size << std::endl;
     }
 
     return std::make_tuple(foodCount, sawWall);

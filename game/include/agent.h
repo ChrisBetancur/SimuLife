@@ -47,22 +47,29 @@ class Trainer {
         double m_discount_factor;
         double m_learning_rate;
 
-        /*std::map<State, std::map<Action, double>> q_table;
+        
         std::vector<State> replay_buffer;
         int replay_buffer_size = 1000;
-        int replay_buffer_index = 0;
-        int batch_size = 32;*/
+        int batch_size = 32;
 
         int target_nn_update_counter = 0;
 
     public:
         Trainer(Agent* agent, Map* map, double discount_factor = 0.9, double learning_rate = 0.001, std::string model_path = "");
+
+        ~Trainer();
         
         void updateState();
         
         Action chooseAction();
         
         void learn(State state, Action action, double reward);
+
+        void updateReplayBuffer(State state);
+
+        std::vector<State> getReplayBuffer() const { return replay_buffer; }
+
+
 };
 
 

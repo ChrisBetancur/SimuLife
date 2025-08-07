@@ -2,53 +2,84 @@
 #include <stats.h>
 #include <logger.h>
 
-double computeExtrinsicReward(State state,
-                              Action action)
-{
+
+double computeExtrinsicReward(State state, Action action, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y, 
+    Direction dir, int wall_pos_x, int wall_pos_y) {
+    // Extract vision information
     int foodCount;
     bool sawWall;
     std::tie(foodCount, sawWall) = state.vision;
     
-    const double WALL_PENALTY   = -1.0;   // big penalty if you run into or see a wall
-    const double FOOD_REWARD    = +1.0;   // reward per food in vision
-    const double ENERGY_WEIGHT  = 0.15;   // how strongly to weight energy
-
+    constexpr double WALL_COLLISION_PENALTY   = -5.0;  // collision
+    constexpr double WALL_NEAR_PENALTY        = -2.0;  // proximity
+    constexpr double FOOD_REWARD              = +3.0;  
+    constexpr double ENERGY_WEIGHT            = 0.15;  
+    constexpr double STEP_COST                = -0.05;
+    constexpr int    FOOD_COUNT_CAP           = 3;
+    constexpr double NEAR_THRESHOLD           = 5.0;   // e.g. pixels or units
+    
     double reward = 0.0;
 
-    // 1) Energy‐level bonus / starvation penalty
+    // 1) starvation / energy bonus
     if (state.energy_lvl <= 0) {
-        reward -= 1.0;                        // starving is bad
+        reward -= 1.0;
     } else {
-        reward += ENERGY_WEIGHT
-                * (state.energy_lvl / MAX_ENERGY);
+        reward += ENERGY_WEIGHT * (state.energy_lvl / MAX_ENERGY);
     }
 
-    // 2) “Vision”‐based wall penalty
-    if (sawWall) {
-        reward += WALL_PENALTY;               // discourage bumping into walls
+    double distToWall = std::hypot(org_x - wall_pos_x, org_y - wall_pos_y);
+    double proximityFactor = std::max(0.0, (NEAR_THRESHOLD - distToWall) / NEAR_THRESHOLD);
+    reward += WALL_NEAR_PENALTY * proximityFactor;
+
+    // 2) wall collision penalty
+    if (hit_wall) {
+        reward += WALL_COLLISION_PENALTY;
+
+        if (wall_pos_x != -1 && wall_pos_y != -1) {
+            // If the direction of the organism is toward the wall, apply a penalty
+            if ((dir == UP && org_y + 10 > wall_pos_y) ||
+                (dir == DOWN && org_y - 10 < wall_pos_y) ||
+                (dir == LEFT && org_x - 10 < wall_pos_x) ||
+                (dir == RIGHT && org_x + 10 > wall_pos_x)) {
+                reward += WALL_COLLISION_PENALTY; // double penaltly for attempting to move into a wall
+                // print check
+                std::cout << "Applied double wall collision penalty for attempting to move into a wall." << std::endl;
+            }
+        }
     }
 
-    // 3) “Vision”‐based food reward
-    //    You might cap foodCount so you don’t get huge spikes;
-    //    here we reward each food you see, up to e.g. 3 units
-    const int   FOOD_COUNT_CAP = 3;
-    int visibleFood = std::min(foodCount, FOOD_COUNT_CAP);
+    // based on the replay buffer, if the organism is close to a wall in any of its last 3 states, apply a small penalty
+    for (int i = std::max(0, static_cast<int>(replay_buffer.size()) - 3); i < replay_buffer.size(); ++i) {
+        int pastFoodCount;
+        bool pastSawWall;
+        std::tie(pastFoodCount, pastSawWall) = replay_buffer[i].vision;
+        if (pastSawWall) {
+            reward += proximityFactor * WALL_NEAR_PENALTY; // apply a small penalty for being near a wall in the past
+            break; // only apply once
+        }
+    }
+
+    // 3) food reward (capped)
+    int visibleFood = foodCount;//std::min(foodCount, FOOD_COUNT_CAP);
     reward += FOOD_REWARD * visibleFood;
 
-    // 4) Optional: small per‐step living cost to encourage efficiency
-    const double STEP_COST = -0.01;
+    // 4) small living cost
     reward += STEP_COST;
 
     // clamp to [-1,1]
-    return std::clamp(reward, -1.0, +1.0);
+    //return std::clamp(reward, -1.0, +1.0);
+    return reward; // no clamping for now, let the neural network handle it
 }
 
 
-double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, bool enable_rnd) {
+
+double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, 
+    bool enable_rnd, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y,
+    Direction dir, int wall_pos_x, int wall_pos_y) {
 
     if (!enable_rnd) {
         // If RND is not enabled, use the extrinsic reward only
-        return computeExtrinsicReward(state, action);
+        return computeExtrinsicReward(state, action, replay_buffer, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
     }
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
 
@@ -92,7 +123,7 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
     stats::update_stats(intrinsic_reward);
     
-    double extrinsic_reward = computeExtrinsicReward(state, action);
+    double extrinsic_reward = computeExtrinsicReward(state, action, replay_buffer, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
 
     Logger::getInstance().log(LogType::DEBUG, "Extrinsic Reward: " + std::to_string(extrinsic_reward));
 
