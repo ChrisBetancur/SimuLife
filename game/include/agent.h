@@ -50,7 +50,7 @@ class Trainer {
         
         std::vector<Transition> replay_buffer;
         int replay_buffer_size = 1000;
-        int batch_size = 32;
+        int batch_size = 64;
         int learning_counter = 0;
 
         int target_nn_update_counter = 0;

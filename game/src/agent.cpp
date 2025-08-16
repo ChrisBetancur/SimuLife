@@ -112,7 +112,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         //print check
         std::cout << "Initializing RND predictor neural network" << std::endl;
         // Initialize RND predictor neural network
-        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, 1, RND_PREDICTOR_ID);
+        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, RND_BATCH_SIZE, RND_PREDICTOR_ID);
     }
     else {
         std::cout << "Loading RND predictor neural network from: " << full_predictor_path << std::endl;
@@ -123,7 +123,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     if (!std::filesystem::exists(full_target_path)) {
 
         // Initialize RND target neural network
-        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, 1, RND_TARGET_ID);
+        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, RND_BATCH_SIZE, RND_TARGET_ID);
         randomize_weights(0, 3); // Randomize weights for the target network
     }
     else {

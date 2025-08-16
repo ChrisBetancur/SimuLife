@@ -11,8 +11,8 @@ inline double mu   = 0.0;
 inline double m2   = 0.0;
 
 
-inline constexpr double beta_init        = 5.0;
-inline constexpr std::size_t beta_decay_steps = 1000000;
+inline constexpr double beta_init        = 0.1;
+inline constexpr std::size_t beta_decay_steps = 500000000;
 
 inline constexpr double beta_floor = 0.2;
 

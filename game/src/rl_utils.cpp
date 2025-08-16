@@ -4,7 +4,112 @@
 
 #include <cmath>
 
+class RND_replay_buffer {
+    private:
+        std::vector<std::vector<double>> buffer;
+        size_t capacity;
+        size_t size;
+        std::mt19937 m_gen;
 
+    public:
+        RND_replay_buffer(size_t capacity) : capacity(capacity), size(0) {
+            buffer.reserve(capacity);
+            std::random_device rd;
+            m_gen = std::mt19937(rd());
+        }
+
+        void add(double* value) {
+            // convert value to vector
+            std::vector<double> vec(value, value + RND_INPUT_DIM);
+            if (size < capacity) {
+                buffer.push_back(vec);
+                size++;
+            } else {
+                // overwrite the oldest entry
+                buffer[size % capacity] = vec;
+            }
+        }
+
+        double* get_batch(size_t batch_size) {
+            if (batch_size > size) {
+                throw std::runtime_error("Batch size exceeds current buffer size");
+            }
+            double* batch = new double[batch_size * RND_INPUT_DIM];
+            std::uniform_int_distribution<> distrib(0, size - 1);
+            for (size_t i = 0; i < batch_size; ++i) {
+                int random_index = distrib(m_gen);
+                std::copy(buffer[random_index].begin(), buffer[random_index].end(), batch + i * RND_INPUT_DIM);
+            }
+
+            return batch;  // Return the batch of data
+        }
+
+        size_t current_size() const {
+            return size;
+        }
+};
+
+RND_replay_buffer rnd_replay_buffer(1000);
+int rnd_counter = 0;
+
+double computeIntrinsicReward(int rnd_batch_size) {
+    if (rnd_replay_buffer.current_size() < rnd_batch_size) {
+        return 0.0; // Not enough data to compute intrinsic reward
+    }
+    double* input_data = rnd_replay_buffer.get_batch(rnd_batch_size);
+
+    double* pred_out = new double[RND_OUTPUT_DIM * rnd_batch_size];
+    predict_nn(0, RND_PREDICTOR_ID, input_data, pred_out, rnd_batch_size);
+
+    double* targ_out = new double[RND_OUTPUT_DIM * rnd_batch_size];
+    predict_nn(0, RND_TARGET_ID, input_data, targ_out, rnd_batch_size);
+
+    double intrinsic_reward = 0.0f;
+    double mse = 0.0;
+
+    double mean_abs_t = 0.0;
+
+    for (int i = 0; i < rnd_batch_size * RND_OUTPUT_DIM; ++i) {
+        double d = pred_out[i] - targ_out[i];
+        mse += d * d;
+        mean_abs_t += std::abs(targ_out[i]);
+    }
+
+    mse /= double(rnd_batch_size * RND_OUTPUT_DIM);
+    double rmse = std::sqrt(mse);
+    mean_abs_t /= double(rnd_batch_size * RND_OUTPUT_DIM);
+    // 2) relative rmse (avoid divide-by-zero)
+    double rel_rmse = rmse / (1.0 + mean_abs_t);
+    // 3) compress if needed
+    double metric = rel_rmse;          // baseline
+
+
+    Logger::getInstance().log(LogType::DEBUG, "Intrinsic Reward (MSE):" + std::to_string(metric));
+
+    //double z = stats::peek_z_score(intrinsic_reward);
+    double z = stats::peek_z_score(metric);
+
+    Logger::getInstance().log(LogType::DEBUG, "Z-Score: " + std::to_string(z));
+
+
+    //stats::update_stats(intrinsic_reward);
+    stats::update_stats(metric);
+
+
+    if (rnd_counter == 6) {
+        train_nn(0, RND_PREDICTOR_ID, input_data, targ_out, 1);
+        rnd_counter = 0;
+    } else {
+        rnd_counter++;
+    }
+
+    delete[] input_data;
+    delete[] pred_out;
+    delete[] targ_out;
+
+    return z;
+
+}
 
 double computeExtrinsicReward(State state, Action action, bool hit_wall, int org_x, int org_y, 
     Direction dir, int wall_pos_x, int wall_pos_y) {
@@ -94,14 +199,14 @@ double computeExtrinsicReward(State state, Action action, bool hit_wall, int org
 
     //return std::clamp(reward, -15.0, 15.0);
 
-    return reward; // try this
+    //return reward; // try this
 
     //reward = std::clamp(reward, -8.0, 8.0); // delete outliers
 
     // scale using tanh_scale(double x, double amplitude, double sensitivity)
-    //double amplitude = 6.0; // max reward
-    //double sensitivity = 4.0; // how quickly the reward saturates
-    //return tanh_scale(reward, amplitude, sensitivity);
+    double amplitude = 6.0; // max reward
+    double sensitivity = 4.0; // how quickly the reward saturates
+    return tanh_scale(reward, amplitude, sensitivity);
 
 }
 
@@ -118,70 +223,11 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
         return extrinsic_reward;
 
     }
+
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
+    rnd_replay_buffer.add(input_data);
 
-
-    // IDs for predictor and target will both be 0 for now
-    uint32_t id = 0;
-    uint32_t nn_type = 2; // RND predictor
-
-    double* pred_out = new double[RND_OUTPUT_DIM];
-    predict_nn(id, 2, input_data, pred_out, 1); 
-
-
-
-    nn_type = 3; // RND target
-    double* targ_out = new double[RND_OUTPUT_DIM]; // Assuming 64 outputs
-    predict_nn(id, 3, input_data, targ_out, 1);
-
-
-    for (int i=0;i<RND_OUTPUT_DIM;++i) {
-        // print pred out[i] and targ_out[i]
-        std::cout << "Output pred_out[i]=" << pred_out[i] << ", targ_out[i]=" << targ_out[i] << std::endl;
-        if (!std::isfinite(pred_out[i]) || !std::isfinite(targ_out[i])) {
-            std::cerr << "RND NaN at dim " << i << std::endl;
-            exit(1);
-        }
-    }
-
-    double intrinsic_reward = 0.0f;
-
-    double mse = 0.0;
-    double mean_abs_t = 0.0;
-    for (int i = 0; i < RND_OUTPUT_DIM; ++i) {
-        double d = pred_out[i] - targ_out[i];
-        mse += d * d;
-        mean_abs_t += std::abs(targ_out[i]);
-    }
-    mse /= double(RND_OUTPUT_DIM);
-    double rmse = std::sqrt(mse);
-    mean_abs_t /= double(RND_OUTPUT_DIM);
-
-    // 2) relative rmse (avoid divide-by-zero)
-    double rel_rmse = rmse / (1.0 + mean_abs_t);   // or use max(mean_abs_t, eps)
-
-    // 3) compress if needed
-    double metric = rel_rmse;          // baseline
-    // if rel_rmse sometimes >> 1e3, compress:
-    /*metric = std::log1p(rel_rmse);    // safer dynamic range
-
-    // 4) safety checks
-    if (!std::isfinite(metric)) metric = 1e12;
-    metric = std::min(metric, 1e12);*/
-
-    Logger::getInstance().log(LogType::DEBUG, "Intrinsic Reward (MSE):" + std::to_string(metric));
-
-
-
-
-    //double z = stats::peek_z_score(intrinsic_reward);
-    double z = stats::peek_z_score(metric);
-
-    Logger::getInstance().log(LogType::DEBUG, "Z-Score: " + std::to_string(z));
-
-
-    //stats::update_stats(intrinsic_reward);
-    stats::update_stats(metric);
+    double z = computeIntrinsicReward(RND_BATCH_SIZE);
     
     double extrinsic_reward = computeExtrinsicReward(state, action, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
 
@@ -193,8 +239,8 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
     Logger::getInstance().log(LogType::DEBUG, "Beta: " + std::to_string(beta));
 
-    constexpr double INTRINSIC_SCALE = 0.9;
-    constexpr double INTRINSIC_CLAMP = 15.0;
+    constexpr double INTRINSIC_SCALE = 1.0;
+    constexpr double INTRINSIC_CLAMP = 30.0;
 
     double intrinsic_term = beta * (z * INTRINSIC_SCALE);
     //intrinsic_term = std::clamp(intrinsic_term, -INTRINSIC_CLAMP, INTRINSIC_CLAMP);
@@ -203,12 +249,6 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
     Logger::getInstance().log(LogType::DEBUG, "Total Reward: " + std::to_string(total_reward) + " (Beta: " + std::to_string(beta) + ")");
 
-
-    //train_nn(0, RND_PREDICTOR_ID, targ_out);
-
-    // print that RND is not fully implemented yet
-    std::cout << "RND intrinsic reward not fully implemented yet!" << std::endl;
-    exit(1);
 
 
     return total_reward;

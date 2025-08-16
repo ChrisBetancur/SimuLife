@@ -65,8 +65,8 @@ def parse_system_log(file_path):
                     current_record = {'timestamp': m.group(0).split(']')[0].lstrip('['),
                                       'boltzmann': [float(m.group(g)) for g in ('v1','v2','v3','v4')]}
                 elif key == 'selected':
+                    # keep selected action but do NOT store temperature
                     current_record['selected_action'] = int(m.group('action'))
-                    current_record['temperature']     = float(m.group('temp'))
                 elif key == 'z_score':
                     current_record['z_score'] = float(m.group('z'))
                 elif key == 'extrinsic':
@@ -97,7 +97,6 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
     extrinsic_rewards = [sum(r.get('extrinsic_reward', 0) for r in ep['records']) for ep in episodes]
     total_rewards     = [sum(r.get('total_reward',   0) for r in ep['records']) for ep in episodes]
     lengths           = [len(ep['records']) for ep in episodes]
-    avg_temps         = [np.nan if len(ep['records'])==0 else np.nanmean([r.get('temperature', np.nan) for r in ep['records']]) for ep in episodes]
     avg_z             = [np.nan if len(ep['records'])==0 else np.nanmean([r.get('z_score',    np.nan) for r in ep['records']]) for ep in episodes]
 
     # average intrinsic mse per episode
@@ -127,15 +126,8 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
         mov_avg = np.array([])   # make it an ndarray for safe .size usage
         mov_x   = []
 
-    # Collect TD errors
-    td_errors = []
-    for ep in episodes:
-        for r in ep['records']:
-            if 'learning_q' in r and 'boltzmann' in r:
-                td_errors.append(abs(max(r['learning_q']) - max(r['boltzmann'])))
-
-    # Plot: 4 rows x 2 columns to add beta + intrinsic subplot
-    fig, axs = plt.subplots(4,2,figsize=(14,14))
+    # Plot: 3 rows x 2 columns (6 plots) - removed temperature and TD error plots
+    fig, axs = plt.subplots(3,2,figsize=(14,12))
     axs = axs.flatten()
 
     # Extrinsic
@@ -153,21 +145,13 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
     axs[2].plot(episode_nums, lengths)
     axs[2].set(title='Episode Lengths', xlabel='Episode', ylabel='Steps')
 
-    # Temp
-    axs[3].plot(episode_nums, avg_temps)
-    axs[3].set(title='Avg Temperature per Episode', xlabel='Episode', ylabel='Temp')
-
     # Z-Score
-    axs[4].plot(episode_nums, avg_z)
-    axs[4].set(title='Avg Z-Score per Episode', xlabel='Episode', ylabel='Z-Score')
-
-    # TD Error
-    axs[5].plot(td_errors)
-    axs[5].set(title='Per-Step TD Error', xlabel='Step', ylabel='|ΔQ|')
+    axs[3].plot(episode_nums, avg_z)
+    axs[3].set(title='Avg Z-Score per Episode', xlabel='Episode', ylabel='Z-Score')
 
     # Beta (new)
-    axs[6].plot(episode_nums, avg_beta, marker='o', linestyle='-')
-    axs[6].set(title='Avg Beta per Episode', xlabel='Episode', ylabel='Beta')
+    axs[4].plot(episode_nums, avg_beta, marker='o', linestyle='-')
+    axs[4].set(title='Avg Beta per Episode', xlabel='Episode', ylabel='Beta')
 
     # Intrinsic MSE (new)
     vals = np.array(avg_intrinsic, dtype=float)
@@ -184,11 +168,11 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
         print("  mean: {:g}".format(np.nanmean(finite)))
         print("  max:  {:g}".format(np.nanmax(finite)))
 
-    axs[7].set(title='Avg Intrinsic MSE per Episode', xlabel='Episode')
+    axs[5].set(title='Avg Intrinsic MSE per Episode', xlabel='Episode')
 
     # Choose plotting strategy depending on dynamic range:
     if finite.size == 0:
-        axs[7].text(0.5, 0.5, 'no intrinsic data', ha='center', va='center', fontsize=12)
+        axs[5].text(0.5, 0.5, 'no intrinsic data', ha='center', va='center', fontsize=12)
     else:
         vmin = float(np.nanmin(finite))
         vmax = float(np.nanmax(finite))
@@ -200,8 +184,8 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
         if use_log:
             # plot log10(1 + x) so zeros are handled and dynamic range compressed
             plotted = np.log10(1.0 + np.clip(vals, 0, None))
-            axs[7].plot(episode_nums, plotted, marker='o', linestyle='-')
-            axs[7].set_ylabel('log10(1 + MSE)')
+            axs[5].plot(episode_nums, plotted, marker='o', linestyle='-')
+            axs[5].set_ylabel('log10(1 + MSE)')
             # convert back tick labels to show original scale approx
             def tick_formatter(y, _):
                 orig = (10 ** y) - 1.0
@@ -209,17 +193,17 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
                     return "{:.0e}".format(orig)
                 else:
                     return "{:.3g}".format(orig)
-            axs[7].yaxis.set_major_formatter(FuncFormatter(tick_formatter))
-            axs[7].yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
+            axs[5].yaxis.set_major_formatter(FuncFormatter(tick_formatter))
+            axs[5].yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
         else:
             # linear plot, force friendly ticks
-            axs[7].plot(episode_nums, vals, marker='o', linestyle='-')
-            axs[7].set_ylabel('MSE')
-            axs[7].yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
+            axs[5].plot(episode_nums, vals, marker='o', linestyle='-')
+            axs[5].set_ylabel('MSE')
+            axs[5].yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
             # format tick labels as plain numbers
             sf = ScalarFormatter()
             sf.set_scientific(False)
-            axs[7].yaxis.set_major_formatter(sf)
+            axs[5].yaxis.set_major_formatter(sf)
 
     # final layout
     plt.tight_layout()

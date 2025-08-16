@@ -10,7 +10,7 @@
 #define MIN_ORGANISM_SPEED 1
 #define MAX_ORGANISM_VISION_DEPTH 5
 #define MIN_ORGANISM_VISION_DEPTH 1
-#define FOOD_ENERGY 10
+#define FOOD_ENERGY 10 // previous was 10
 
 struct Genome {
     uint32_t gender;

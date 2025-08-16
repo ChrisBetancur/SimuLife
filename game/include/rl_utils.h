@@ -28,6 +28,8 @@
 #define RND_PREDICTOR_ID 2 // ID for RND predictor
 #define RND_TARGET_ID 3 // ID for RND target
 
+#define RND_BATCH_SIZE 32 // Batch size for RND training
+
 inline double tanh_scale(double x, double amplitude, double sensitivity) {
     if (sensitivity <= 0.0) sensitivity = 1.0;
     return amplitude * std::tanh(x / sensitivity);
@@ -57,6 +59,8 @@ enum class PolicyType {
     EPSILON_GREEDY,
     BOLTZMANN
 };
+
+double computeIntrinsicReward(int rnd_batch_size);
 
 double computeExtrinsicReward(State state, Action action, bool hit_wall, int org_x, int org_y, Direction dir, int wall_pos_x = -1, int wall_pos_y = -1);
 
