@@ -176,7 +176,7 @@ void Map::drawVision(SDL_Renderer* renderer) const {
     SDL_RenderDrawRect(renderer, &rect);*/
 }
 
-std::tuple<int, bool> Map::getVision(int x, int y,
+std::tuple<int, bool, int> Map::getVision(int x, int y,
                                         Direction facing,
                                         int depth,
                                         int org_size) const
@@ -226,12 +226,16 @@ std::tuple<int, bool> Map::getVision(int x, int y,
 
     bool sawWall = false;
     int foodCount = 0;
+    int wall_distance = -1; // distance to the first wall encountered, -1 if no wall
 
     // scan box
     for (int j = xmin; j <= xmax; ++j) {
         for (int k = ymin; k <= ymax; ++k) {
             if (j < 0 || j >= width || k < 0 || k >= height) {
                 sawWall = true;
+                if (wall_distance == -1) {
+                    wall_distance = std::abs(j - x) + std::abs(k - y);
+                }
                 continue;
             }
             auto* cell = grid[k][j];
@@ -244,14 +248,9 @@ std::tuple<int, bool> Map::getVision(int x, int y,
         }
     }
 
-    // print if we saw a wall or not
-    if (sawWall) {
-        std::cout << "Saw a wall in vision at (" << x << ", " << y << ") facing " 
-                  << facing << " with depth " << depth
-                  << " and org_size " << org_size << std::endl;
-    }
+    
 
-    return std::make_tuple(foodCount, sawWall);
+    return std::make_tuple(foodCount, sawWall, wall_distance);
 }
 
 std::vector<double> Map::getFoodCounts() const {

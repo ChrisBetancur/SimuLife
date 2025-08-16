@@ -2,23 +2,43 @@
 #include <stats.h>
 #include <logger.h>
 
+#include <cmath>
 
-double computeExtrinsicReward(State state, Action action, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y, 
+
+
+double computeExtrinsicReward(State state, Action action, bool hit_wall, int org_x, int org_y, 
     Direction dir, int wall_pos_x, int wall_pos_y) {
     // Extract vision information
     int foodCount;
     bool sawWall;
-    std::tie(foodCount, sawWall) = state.vision;
+    int wall_distance = -1; // Default to -1 if no wall is encountered
+    std::tie(foodCount, sawWall, wall_distance) = state.vision;
     
-    constexpr double WALL_COLLISION_PENALTY   = -5.0;  // collision
-    constexpr double WALL_NEAR_PENALTY        = -2.0;  // proximity
-    constexpr double FOOD_REWARD              = +3.0;  
-    constexpr double ENERGY_WEIGHT            = 0.15;  
-    constexpr double STEP_COST                = -0.05;
-    constexpr int    FOOD_COUNT_CAP           = 3;
-    constexpr double NEAR_THRESHOLD           = 5.0;   // e.g. pixels or units
+    // SCALED-DOWN extrinsic reward constants (copy/paste)
+    constexpr double WALL_COLLISION_PENALTY      = -4.0;   // was -10
+    constexpr double REPEATED_COLLISION_PENALTY  = -1.0;   // was -2 (smaller repeat penalty)
+    constexpr double WALL_NEAR_PENALTY           = -2.0;   // was -10
+    constexpr double MOVE_AWAY_WEIGHT            = 0.20;   // was 0.5 (smaller reward per distance)
+    constexpr double SAFETY_BONUS                = 0.10;   // once outside NEAR_THRESHOLD (was 0.5)
+    constexpr double SAFE_STEP_BONUS             = 0.02;   // small positive for safe steps
+    constexpr double FOOD_REWARD                 = 0.50;   // keep modest incentive for food
+    constexpr double ENERGY_WEIGHT               = 0.15;   // unchanged (ok)
+    constexpr double STEP_COST                   = -0.01;  // smaller living cost (was -0.05)
+    constexpr int    FOOD_COUNT_CAP              = 3;
+    constexpr double NEAR_THRESHOLD              = 5.0;
+    constexpr double NO_MOVE_AWAY_PENALTY        = -0.20;  // was -1.0 (much smaller)
+    constexpr double MAX_DIST                    = 100.0;
+
     
     double reward = 0.0;
+
+    /*static double last_distToWall;
+    static int consecWallHits;
+
+    if (state.is_new_episode) {
+        last_distToWall = NEAR_THRESHOLD + 1.0;
+        consecWallHits = 0;
+    }*/
 
     // 1) starvation / energy bonus
     if (state.energy_lvl <= 0) {
@@ -27,37 +47,37 @@ double computeExtrinsicReward(State state, Action action, std::vector<State> rep
         reward += ENERGY_WEIGHT * (state.energy_lvl / MAX_ENERGY);
     }
 
-    double distToWall = std::hypot(org_x - wall_pos_x, org_y - wall_pos_y);
-    double proximityFactor = std::max(0.0, (NEAR_THRESHOLD - distToWall) / NEAR_THRESHOLD);
-    reward += WALL_NEAR_PENALTY * proximityFactor;
-
-    // 2) wall collision penalty
+    // 2) wall interaction
     if (hit_wall) {
         reward += WALL_COLLISION_PENALTY;
+    }
+    else if (sawWall && wall_distance >= 0 && wall_distance < NEAR_THRESHOLD) {
+        // near a wall
+        reward += WALL_NEAR_PENALTY;
 
-        if (wall_pos_x != -1 && wall_pos_y != -1) {
-            // If the direction of the organism is toward the wall, apply a penalty
-            if ((dir == UP && org_y + 10 > wall_pos_y) ||
-                (dir == DOWN && org_y - 10 < wall_pos_y) ||
-                (dir == LEFT && org_x - 10 < wall_pos_x) ||
-                (dir == RIGHT && org_x + 10 > wall_pos_x)) {
-                reward += WALL_COLLISION_PENALTY; // double penaltly for attempting to move into a wall
-                // print check
-                std::cout << "Applied double wall collision penalty for attempting to move into a wall." << std::endl;
+        // encourage moving away from the wall
+        double distToWall = static_cast<double>(wall_distance);
+        double distDelta = distToWall - NEAR_THRESHOLD; // positive if moving away, negative if moving closer
+
+        if (distDelta > 0) {
+            reward += MOVE_AWAY_WEIGHT * (distDelta / NEAR_THRESHOLD);
+            if (distToWall > NEAR_THRESHOLD) {
+                reward += SAFETY_BONUS;
             }
+        } else if (distDelta < 0) {
+            reward += MOVE_AWAY_WEIGHT * (distDelta / NEAR_THRESHOLD); // negative contribution
+        } else {
+            reward += NO_MOVE_AWAY_PENALTY;
         }
+
+    } 
+    else {
+        // safe step bonus
+        reward += SAFE_STEP_BONUS;
     }
 
-    // based on the replay buffer, if the organism is close to a wall in any of its last 3 states, apply a small penalty
-    for (int i = std::max(0, static_cast<int>(replay_buffer.size()) - 3); i < replay_buffer.size(); ++i) {
-        int pastFoodCount;
-        bool pastSawWall;
-        std::tie(pastFoodCount, pastSawWall) = replay_buffer[i].vision;
-        if (pastSawWall) {
-            reward += proximityFactor * WALL_NEAR_PENALTY; // apply a small penalty for being near a wall in the past
-            break; // only apply once
-        }
-    }
+
+
 
     // 3) food reward (capped)
     int visibleFood = foodCount;//std::min(foodCount, FOOD_COUNT_CAP);
@@ -68,18 +88,35 @@ double computeExtrinsicReward(State state, Action action, std::vector<State> rep
 
     // clamp to [-1,1]
     //return std::clamp(reward, -1.0, +1.0);
-    return reward; // no clamping for now, let the neural network handle it
+
+    // scale the reward to [-15, 15] but not clamped
+
+
+    //return std::clamp(reward, -15.0, 15.0);
+
+    return reward; // try this
+
+    //reward = std::clamp(reward, -8.0, 8.0); // delete outliers
+
+    // scale using tanh_scale(double x, double amplitude, double sensitivity)
+    //double amplitude = 6.0; // max reward
+    //double sensitivity = 4.0; // how quickly the reward saturates
+    //return tanh_scale(reward, amplitude, sensitivity);
+
 }
 
 
 
 double computeReward(State state, Action action, std::vector<double> food_rates, uint32_t organism_sector, 
-    bool enable_rnd, std::vector<State> replay_buffer, bool hit_wall, int org_x, int org_y,
+    bool enable_rnd, bool hit_wall, int org_x, int org_y,
     Direction dir, int wall_pos_x, int wall_pos_y) {
 
     if (!enable_rnd) {
         // If RND is not enabled, use the extrinsic reward only
-        return computeExtrinsicReward(state, action, replay_buffer, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
+        double extrinsic_reward = computeExtrinsicReward(state, action, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
+        Logger::getInstance().log(LogType::DEBUG, "Extrinsic Reward: " + std::to_string(extrinsic_reward));
+        return extrinsic_reward;
+
     }
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
 
@@ -88,72 +125,93 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     uint32_t id = 0;
     uint32_t nn_type = 2; // RND predictor
 
-    double* predictor_q_values = new double[4]; // Assuming 4 actions
-    predict_nn(id, 2, input_data, predictor_q_values); 
+    double* pred_out = new double[RND_OUTPUT_DIM];
+    predict_nn(id, 2, input_data, pred_out, 1); 
 
-    if (std::isnan(predictor_q_values[0]) || std::isnan(predictor_q_values[1]) ||
-        std::isnan(predictor_q_values[2]) || std::isnan(predictor_q_values[3])) {
-        std::cerr << "Error: NaN values in predictor Q-values" << std::endl;
-        exit(1);
-    }
+
 
     nn_type = 3; // RND target
-    double* target_q_values = new double[4]; // Assuming 4 actions
-    predict_nn(id, 3, input_data, target_q_values);
+    double* targ_out = new double[RND_OUTPUT_DIM]; // Assuming 64 outputs
+    predict_nn(id, 3, input_data, targ_out, 1);
+
+
+    for (int i=0;i<RND_OUTPUT_DIM;++i) {
+        // print pred out[i] and targ_out[i]
+        std::cout << "Output pred_out[i]=" << pred_out[i] << ", targ_out[i]=" << targ_out[i] << std::endl;
+        if (!std::isfinite(pred_out[i]) || !std::isfinite(targ_out[i])) {
+            std::cerr << "RND NaN at dim " << i << std::endl;
+            exit(1);
+        }
+    }
 
     double intrinsic_reward = 0.0f;
 
-    // Assuming predictor_q_values and target_q_values are 1D arrays with 4 elements each
-    // Calculate the RND reward as the squared difference between predictor and target Q-values
-    for (int i = 0; i < 4; ++i) {
-        intrinsic_reward += (predictor_q_values[i] - target_q_values[i]) * (predictor_q_values[i] - target_q_values[i]);
+    double mse = 0.0;
+    double mean_abs_t = 0.0;
+    for (int i = 0; i < RND_OUTPUT_DIM; ++i) {
+        double d = pred_out[i] - targ_out[i];
+        mse += d * d;
+        mean_abs_t += std::abs(targ_out[i]);
     }
+    mse /= double(RND_OUTPUT_DIM);
+    double rmse = std::sqrt(mse);
+    mean_abs_t /= double(RND_OUTPUT_DIM);
 
-    
+    // 2) relative rmse (avoid divide-by-zero)
+    double rel_rmse = rmse / (1.0 + mean_abs_t);   // or use max(mean_abs_t, eps)
 
-    if (!std::isfinite(intrinsic_reward)) intrinsic_reward = 1e12;
-    intrinsic_reward = std::min(intrinsic_reward, 1e12);
-    intrinsic_reward = std::log1p(intrinsic_reward);
+    // 3) compress if needed
+    double metric = rel_rmse;          // baseline
+    // if rel_rmse sometimes >> 1e3, compress:
+    /*metric = std::log1p(rel_rmse);    // safer dynamic range
+
+    // 4) safety checks
+    if (!std::isfinite(metric)) metric = 1e12;
+    metric = std::min(metric, 1e12);*/
+
+    Logger::getInstance().log(LogType::DEBUG, "Intrinsic Reward (MSE):" + std::to_string(metric));
 
 
-    double z = stats::peek_z_score(intrinsic_reward);
+
+
+    //double z = stats::peek_z_score(intrinsic_reward);
+    double z = stats::peek_z_score(metric);
 
     Logger::getInstance().log(LogType::DEBUG, "Z-Score: " + std::to_string(z));
 
 
-    stats::update_stats(intrinsic_reward);
+    //stats::update_stats(intrinsic_reward);
+    stats::update_stats(metric);
     
-    double extrinsic_reward = computeExtrinsicReward(state, action, replay_buffer, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
+    double extrinsic_reward = computeExtrinsicReward(state, action, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
+
+    //extrinsic_reward = std::max(-15.0, std::min(15.0, extrinsic_reward));
 
     Logger::getInstance().log(LogType::DEBUG, "Extrinsic Reward: " + std::to_string(extrinsic_reward));
 
-    double beta = stats::current_beta();
+    double beta = stats::current_beta(state.food_count);
 
-    double total_reward = extrinsic_reward + beta * z;
+    Logger::getInstance().log(LogType::DEBUG, "Beta: " + std::to_string(beta));
+
+    constexpr double INTRINSIC_SCALE = 0.9;
+    constexpr double INTRINSIC_CLAMP = 15.0;
+
+    double intrinsic_term = beta * (z * INTRINSIC_SCALE);
+    //intrinsic_term = std::clamp(intrinsic_term, -INTRINSIC_CLAMP, INTRINSIC_CLAMP);
+
+    double total_reward = extrinsic_reward + intrinsic_term;
 
     Logger::getInstance().log(LogType::DEBUG, "Total Reward: " + std::to_string(total_reward) + " (Beta: " + std::to_string(beta) + ")");
 
-    double max_q_value = target_q_values[0];
 
-    int best_action_index = 0;
-    for (int i = 1; i < 4; ++i) {
-        if (target_q_values[i] > max_q_value) {
-            max_q_value = target_q_values[i];
-            best_action_index = i;
-        }
-    }
+    //train_nn(0, RND_PREDICTOR_ID, targ_out);
 
-    double target = total_reward + 0.9 * max_q_value;
-
-    target_q_values[best_action_index] = target;
-
-
-    train_nn(0, 2, target_q_values);
+    // print that RND is not fully implemented yet
+    std::cout << "RND intrinsic reward not fully implemented yet!" << std::endl;
+    exit(1);
 
 
     return total_reward;
-
-
 }
 
 double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {

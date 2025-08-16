@@ -11,14 +11,17 @@ inline double mu   = 0.0;
 inline double m2   = 0.0;
 
 
-inline constexpr double beta_init        = 1.0;
-inline constexpr std::size_t beta_decay_steps = 100000;
+inline constexpr double beta_init        = 5.0;
+inline constexpr std::size_t beta_decay_steps = 1000000;
 
-inline constexpr double beta_floor = 0.01;
+inline constexpr double beta_floor = 0.2;
 
-inline double current_beta() {
-  double frac = std::min(1.0, double(n) / beta_decay_steps);
-  return beta_floor + (beta_init - beta_floor) * (1.0 - frac);
+inline double current_beta(int food_count) {
+    /*if (food_count < 15) {
+        return beta_init;
+    }*/
+    double frac = std::min(1.0, double(n) / beta_decay_steps);
+    return beta_floor + (beta_init - beta_floor) * (1.0 - frac);
 }
 
 inline double peek_z_score(double x) {

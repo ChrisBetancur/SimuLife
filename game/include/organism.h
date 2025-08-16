@@ -30,7 +30,7 @@ class Organism : public Sprite {
         const float starve_thresh; // fraction of maxEnergy below which you fatigue
         const float starve_accel; // extra multiplier when starving
         const uint32_t original_size; // original size of the organism
-    private:
+
         Genome m_genome; // Genome of the organism
 
         enum Gender {
@@ -63,6 +63,8 @@ class Organism : public Sprite {
         uint32_t getEnergy() const { return energy_lvl; }
 
         uint32_t getSector(int width, int height);
+
+        uint32_t foodCount() const { return foods_eaten; }
 
 };
 

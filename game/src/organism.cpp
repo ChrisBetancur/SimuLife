@@ -73,10 +73,10 @@ void Organism::draw(SDL_Renderer* renderer) {
 void Organism::eat() {
     foods_eaten++;
     // Increase size
-    m_genome.size += 1;
+    /*m_genome.size += 1;
     if (m_genome.size > MAX_ORGANISM_SIZE) {
         m_genome.size = MAX_ORGANISM_SIZE;
-    }
+    }*/
 
     energy_lvl += FOOD_ENERGY;
     if (energy_lvl > max_energy_lvl) {

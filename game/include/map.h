@@ -48,14 +48,14 @@ class Map {
         bool isWall(int x, int y) const;
 
         int getWallPosX(int x, int y) const;
-        
+
         int getWallPosY(int x, int y) const;
 
         void draw_map(SDL_Renderer* renderer);
 
         void drawVision(SDL_Renderer* renderer) const;
         
-        std::tuple<int, bool> getVision(int x, int y, Direction facing, int depth, int org_size) const;
+        std::tuple<int, bool, int> getVision(int x, int y, Direction facing, int depth, int org_size) const;
 
         // RND related functions
         // return vector of food counts and in each sector, 9 sectors in total

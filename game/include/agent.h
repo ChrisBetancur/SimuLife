@@ -29,7 +29,7 @@ class Agent {
 
         ~Agent();
         
-        void updateState(Map* map);
+        void updateState(Map* map, bool start_ep = false);
         
         Action chooseAction();
 
@@ -48,11 +48,13 @@ class Trainer {
         double m_learning_rate;
 
         
-        std::vector<State> replay_buffer;
+        std::vector<Transition> replay_buffer;
         int replay_buffer_size = 1000;
         int batch_size = 32;
+        int learning_counter = 0;
 
         int target_nn_update_counter = 0;
+        std::mt19937 m_gen;
 
     public:
         Trainer(Agent* agent, Map* map, double discount_factor = 0.9, double learning_rate = 0.001, std::string model_path = "");
@@ -62,12 +64,14 @@ class Trainer {
         void updateState();
         
         Action chooseAction();
+
+        void learn_from_batch();
         
-        void learn(State state, Action action, double reward);
+        void learn(State state, State prevState, Action action, double reward, bool isDone = false);
 
-        void updateReplayBuffer(State state);
+        void updateReplayBuffer(Transition transition);
 
-        std::vector<State> getReplayBuffer() const { return replay_buffer; }
+        std::vector<Transition> getReplayBuffer() const { return replay_buffer; }
 
 
 };

@@ -11,7 +11,7 @@
 #define DECAY 0.0001
 #define MOMENTUM 0.3
 
-#define LR_INITIAL 1e-3
+#define LR_INITIAL 1e-5
 #define BETA1 0.9
 #define BETA2 0.999
 #define EPS 1e-8
@@ -31,66 +31,9 @@ class NeuralNetwork {
         uint32_t m_output_dim;
         uint32_t m_hidden_dim;
 
-
-        /*NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
-                    uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) :
-            optimizer(LEARNING_RATE, DECAY, 0.0, MOMENTUM),
-            m_nn_type(nn_type),
-            m_batch_size(batch_size),
-            m_input_dim(input_dim),
-            num_layers(num_m_layers),
-            m_output_dim(output_dim),
-            m_hidden_dim(hidden_dim)
-        {
-            // Validate parameters
-            if (num_m_layers < 3) {
-                throw std::invalid_argument("Number of layers must be at least 3");
-            }
-            if (hidden_dim < 1) {
-                throw std::invalid_argument("Hidden dimension must be at least 1");
-            }
-
-            // Reserve space upfront to avoid reallocations
-            m_layers.reserve(num_m_layers);
-            m_activations.reserve(num_m_layers);
-
-            // Create input layer directly in vector
-            m_layers.emplace_back(input_dim, hidden_dim, 0.0, 0.0001, 0.0, 0);
-            auto& input_layer = m_layers.back();
-            input_layer.set_weights(arma::mat(input_dim, hidden_dim, arma::fill::value(0.1)));
-            input_layer.set_biases(arma::mat(1, hidden_dim, arma::fill::value(0.1)));
-
-            // Create hidden layers
-            for (uint32_t i = 0; i < num_m_layers - 2; ++i) {
-                m_layers.emplace_back(hidden_dim, hidden_dim, 0.0, 0.0001, 0.0, 0);
-                auto& layer = m_layers.back();
-                layer.set_weights(arma::mat(hidden_dim, hidden_dim, arma::fill::value(0.1)));
-                layer.set_biases(arma::mat(1, hidden_dim, arma::fill::value(0.1)));
-            }
-
-            // Create output layer
-            m_layers.emplace_back(hidden_dim, output_dim, 0.0, 0.0001, 0.0, 0);
-            auto& output_layer = m_layers.back();
-            output_layer.set_weights(arma::mat(hidden_dim, output_dim, arma::fill::value(0.1)));
-            output_layer.set_biases(arma::mat(1, output_dim, arma::fill::value(0.1)));
-
-            // Create activations
-            for (uint32_t i = 0; i < num_m_layers; ++i) {
-                m_activations.emplace_back();
-            }
-
-            // Verify initialization
-            for (const auto& layer : m_layers) {
-                if (layer.m_weights.has_nan() || layer.m_biases.has_nan()) {
-                    std::cerr << "Error: Layer weights or biases contain NaN values." << std::endl;
-                    exit(1);
-                }
-            }
-        }*/
-
         NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
                     uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) :
-            optimizer(LEARNING_RATE, DECAY, 0.0, MOMENTUM),
+            optimizer(LR_INITIAL, BETA1, BETA2, EPS, 0.0, 0.0),
             m_nn_type(nn_type),
             m_batch_size(batch_size),
             m_input_dim(input_dim),
@@ -195,19 +138,19 @@ class NeuralNetwork {
             }
         }
 
-        void predict(double* input_data, double* output_data) {
+        void predict(double* input_data, double* output_data, uint32_t batch_size) {
 
             if (input_data == nullptr) {
                 std::cerr << "Error: input_data is null" << std::endl;
                 return;
             }
-            const size_t num_elements = static_cast<size_t>(m_input_dim) * static_cast<size_t>(m_batch_size);
+            const size_t num_elements = static_cast<size_t>(m_input_dim) * static_cast<size_t>(batch_size);
             if (num_elements == 0) {
                 std::cerr << "Error: input_data has zero elements" << std::endl;
                 return;
             }
 
-            arma::mat inputs(input_data, m_input_dim, m_batch_size, true);
+            arma::mat inputs(input_data, m_input_dim, batch_size, true);
             inputs = inputs.t(); // Transpose to match the expected input shape
 
             for (int i = 0; i < m_layers.size() - 1; ++i) {
@@ -235,9 +178,21 @@ class NeuralNetwork {
         }
 
 
-        void train(double* target_data) {
-            //cleanup(); // Reset all layers and activations before training
-            // Convert target_data to arma::mat
+        void train(double* input_data, double* target_data) {
+
+            arma::mat inputs(input_data, m_input_dim, m_batch_size, true);
+            inputs = inputs.t(); // Transpose to match the expected input shape
+
+            for (int i = 0; i < m_layers.size() - 1; ++i) {
+                m_layers[i].forward(inputs);
+                m_activations[i].forward(m_layers[i].m_output);
+
+                inputs = m_activations[i].m_output;
+            }
+
+            // Forward pass through the last layer
+            m_layers.back().forward(inputs);
+
             arma::mat expected_output(target_data, m_layers.back().m_output.n_rows, m_layers.back().m_output.n_cols, true, false);
 
             arma::mat d_loss = derivative_mse_loss(m_layers.back().m_output, expected_output);
@@ -318,18 +273,18 @@ extern "C" {
         }
     }
 
-    void train_nn(uint32_t id, uint32_t nn_type, double* target_data) {
+    void train_nn(uint32_t id, uint32_t nn_type, double* input_data, double* target_data, uint32_t batch_size) {
         if (nn_type == 0) {
-            nn_online_instances[id]->train(target_data);
+            nn_online_instances[id]->train(input_data, target_data);
         }
         else if (nn_type == 1) {
-            nn_target_instances[id]->train(target_data);
+            nn_target_instances[id]->train(input_data, target_data);
         }
         else if (nn_type == 2) {
-            nn_rnd_instances[id]->train(target_data);
+            nn_rnd_instances[id]->train(input_data, target_data);
         }
         else if (nn_type == 3) {
-            nn_rnd_target_instances[id]->train(target_data);
+            nn_rnd_target_instances[id]->train(input_data, target_data);
         }
         // If nn_type is not recognized, print an error message
         else {
@@ -339,18 +294,18 @@ extern "C" {
     }
 
     // Prediction function converts arma::mat to double*
-    void predict_nn(uint32_t id, uint32_t nn_type, double* input_data, double* output_data) {
+    void predict_nn(uint32_t id, uint32_t nn_type, double* input_data, double* output_data, uint32_t batch_size) {
         if (nn_type == 0) {
-            nn_online_instances[id]->predict(input_data, output_data);
+            nn_online_instances[id]->predict(input_data, output_data, batch_size);
         }
         else if (nn_type == 1) {
-            nn_target_instances[id]->predict(input_data, output_data);
+            nn_target_instances[id]->predict(input_data, output_data, batch_size);
         }
         else if (nn_type == 2) {
-            nn_rnd_instances[id]->predict(input_data, output_data);
+            nn_rnd_instances[id]->predict(input_data, output_data, batch_size);
         }
         else if (nn_type == 3) {
-            nn_rnd_target_instances[id]->predict(input_data, output_data);
+            nn_rnd_target_instances[id]->predict(input_data, output_data, batch_size);
         }
     
         // If nn_type is not recognized, print an error message

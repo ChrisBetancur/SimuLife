@@ -7,9 +7,9 @@ extern "C" {
 uint32_t init_nn(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
     uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type);
 
-void predict_nn(uint32_t id, uint32_t nn_type, double* input_data, double* output_data);
+void predict_nn(uint32_t id, uint32_t nn_type, double* input_data, double* output_data, uint32_t batch_size);
 
-void train_nn(uint32_t id, uint32_t nn_type, double* target_data);
+void train_nn(uint32_t id, uint32_t nn_type, double* input_data, double* target_data, uint32_t batch_size);
 
 void update_target_nn(uint32_t online_nn_id, uint32_t target_nn_id);
 
