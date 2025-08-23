@@ -31,7 +31,7 @@ void Agent::setPolicy(PolicyType policy_type) {
     if (policy_type == PolicyType::EPSILON_GREEDY) {
         m_epsilon_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06);
     } else if (policy_type == PolicyType::BOLTZMANN) {
-        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.999995, 0.25, 1);
+        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9999995, 0.1, 2);
     } else {
         throw std::invalid_argument("Unknown policy type");
     }
@@ -46,11 +46,11 @@ Agent::~Agent() {  // Destructor to free memory
     }
 }
      
-void Agent::updateState(Map* map, bool start_ep) {
+void Agent::updateState(Map* map, bool is_eating) {
     // Update the state of the agent based on the organism's properties
     m_state.genome = m_organism->getGenome();
     m_state.energy_lvl = m_organism->getEnergy();
-    m_state.is_new_episode = start_ep; // Set the flag for new episode
+    m_state.is_eating = is_eating; // Set the flag for new episode
 
     int x, y;
     m_organism->getPosition(x, y);
@@ -76,7 +76,12 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     m_agent(agent),
     m_map(map),
     m_discount_factor(discount_factor),
-    m_learning_rate(learning_rate) {
+    m_learning_rate(learning_rate),
+    replay_buffer_size(REPLAY_BUFFER_CAPACITY),
+    batch_size(64),
+    learning_counter(0),
+    m_rnd_replay_buffer(REPLAY_BUFFER_CAPACITY),
+    m_rnd_counter(0) {
 
     std::random_device rd;
     m_gen = std::mt19937(rd());
@@ -185,7 +190,7 @@ void Trainer::learn_from_batch() {
     predict_nn(0, DQN_ONLINE_ID, states_batch, online_q_values, batch_size);
 
     for (int i = 0; i < batch_size; ++i) {
-        double max_next_q = *std::max_element(online_q_values + i * DQN_OUTPUT_DIM, online_q_values + (i + 1) * DQN_OUTPUT_DIM);
+        double max_next_q = *std::max_element(target_values + i * DQN_OUTPUT_DIM, target_values + (i + 1) * DQN_OUTPUT_DIM);
         for (int j = 0; j < DQN_OUTPUT_DIM; ++j) {
             if (j == static_cast<int>(actions_batch[i])) {
                 target_values[i * DQN_OUTPUT_DIM + j] = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
@@ -201,7 +206,26 @@ void Trainer::learn_from_batch() {
 
 }
 
-void Trainer::learn(State state, State prevState, Action action, double reward, bool isDone) {
+void Trainer::rnd_learn_from_batch() {
+    if (m_rnd_replay_buffer.current_size() < RND_BATCH_SIZE) {
+        return; // Not enough data to learn
+    }
+
+    double* input_data = m_rnd_replay_buffer.get_batch(RND_BATCH_SIZE);
+    double* target_data = new double[RND_BATCH_SIZE * RND_OUTPUT_DIM];
+
+    // Predict using the predictor network
+    predict_nn(0, RND_PREDICTOR_ID, input_data, target_data, RND_BATCH_SIZE);
+
+    // Train the target network
+    train_nn(0, RND_TARGET_ID, input_data, target_data, RND_BATCH_SIZE);
+
+    delete[] input_data;
+    delete[] target_data;
+}
+
+void Trainer::learn(State state, State prevState, Action action, double reward, bool isDone,
+                    std::vector<double> food_rates, uint32_t organism_sector) {
     // Create the full transition tuple
     Transition transition;
     transition.state = prevState;
@@ -213,9 +237,11 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
     // Add the transition to the replay buffer
     updateReplayBuffer(transition);
 
+    m_rnd_replay_buffer.add(prepareInputData(state, true, food_rates, organism_sector));
+
     // Update target network periodically
     target_nn_update_counter++;
-    if (target_nn_update_counter % 100 == 0) {
+    if (target_nn_update_counter % 1000 == 0) {
         update_target_nn(0, 0);
     }
 
@@ -227,6 +253,13 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
         }
     } else {
         learning_counter++;
+    }
+
+    if (m_rnd_counter == 100) {
+        rnd_learn_from_batch();
+        m_rnd_counter = 0;
+    } else {
+        m_rnd_counter++;
     }
 }
 

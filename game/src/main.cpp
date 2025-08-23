@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <game.h>
 #include <logger.h>
+#include <stats.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -22,4 +23,7 @@ int main(int argc, char* argv[]) {
     Logger::getInstance().init("system.log");
     Game game;
     game.run();
+
+
+
 }

@@ -1,5 +1,6 @@
 #include <armadillo>
 #include <layer_dense.h>
+#include <learning_rate_scheduler.h>
 
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
@@ -25,7 +26,7 @@ class Optimizer_SGD {
 class Optimizer_Adam {
 public:
     double m_learning_rate;
-    double m_decay;
+    LearningRateScheduler m_lr_scheduler; // Use learning rate scheduler
     double m_step;
 
     double m_beta1;
@@ -36,8 +37,9 @@ public:
                    double beta1 = 0.9,
                    double beta2 = 0.999,
                    double eps = 1e-8,
-                   double decay = 0.0,
-                   double step = 0.0);
+                   double step = 0.0,
+                   int max_steps = 1000000,
+                   double min_lr = 1e-5);
 
     void pre_update_params();
     void update(LayerDense &layer);

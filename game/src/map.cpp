@@ -114,6 +114,7 @@ void Map::organismCollisionFood(Sprite* sprite_org) {
                     grid[i][j] = nullptr;
                     food_count--;
                     organism->eat();
+                    eating = true; // Set eating flag
                 }
             }
         }
@@ -247,8 +248,6 @@ std::tuple<int, bool, int> Map::getVision(int x, int y,
             }
         }
     }
-
-    
 
     return std::make_tuple(foodCount, sawWall, wall_distance);
 }

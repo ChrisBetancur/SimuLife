@@ -29,7 +29,7 @@ class Agent {
 
         ~Agent();
         
-        void updateState(Map* map, bool start_ep = false);
+        void updateState(Map* map, bool is_eating);
         
         Action chooseAction();
 
@@ -49,11 +49,15 @@ class Trainer {
 
         
         std::vector<Transition> replay_buffer;
-        int replay_buffer_size = 1000;
-        int batch_size = 64;
-        int learning_counter = 0;
+        int replay_buffer_size;
+        int batch_size;
+        int learning_counter;
 
-        int target_nn_update_counter = 0;
+
+        RND_replay_buffer m_rnd_replay_buffer;
+        int m_rnd_counter;
+
+        int target_nn_update_counter;
         std::mt19937 m_gen;
 
     public:
@@ -66,8 +70,11 @@ class Trainer {
         Action chooseAction();
 
         void learn_from_batch();
+
+        void rnd_learn_from_batch();
         
-        void learn(State state, State prevState, Action action, double reward, bool isDone = false);
+        void learn(State state, State prevState, Action action, double reward, bool isDone = false, 
+                   std::vector<double> food_rates = {}, uint32_t organism_sector = 0);
 
         void updateReplayBuffer(Transition transition);
 

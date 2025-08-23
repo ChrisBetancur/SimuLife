@@ -27,6 +27,7 @@ class Map {
 
         // vector that contains the vision of the organism. tuple of (xmin, ymin, xmax, ymax)
         mutable std::tuple<int, int, int, int> org_vision;
+        bool eating = false; // flag to indicate if the organism is eating
 
 
     public:
@@ -60,6 +61,15 @@ class Map {
         // RND related functions
         // return vector of food counts and in each sector, 9 sectors in total
         std::vector<double> getFoodCounts() const;
+
+        bool isEating() const {
+
+            return eating;
+        }
+
+        void resetEating() {
+            eating = false; // Reset the eating flag
+        }
 };
 
 #endif

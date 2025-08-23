@@ -34,7 +34,7 @@ Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpi
     int y = std::clamp<int>(std::round(distY(gen)), 10, 590);
 
         
-    m_organism = new Organism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, 10});
+    m_organism = new Organism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, 15});
     //m_map->addOrganism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, MIN_ORGANISM_SIZE});
 
     m_agent = new Agent(m_organism);
@@ -137,7 +137,6 @@ void Game::runEpisodes(int episodes) {
         return;
     }
 
-    bool start_ep = false;
     
     for (int i = 0; i < episodes; ++i) {
 
@@ -164,7 +163,6 @@ void Game::runEpisodes(int episodes) {
         SDL_SetRenderDrawColor(m_renderer, 255, 255, 255, 255);
         SDL_RenderClear(m_renderer);
 
-        start_ep = true;
         
         while (running) {
             
@@ -184,9 +182,6 @@ void Game::runEpisodes(int episodes) {
 
             int dx = 0, dy = 0;
 
-
-            // Get the action from the agent
-            m_agent->updateState(m_map, start_ep);
             Action action = m_agent->chooseAction();
 
             
@@ -213,7 +208,7 @@ void Game::runEpisodes(int episodes) {
                 }
 
                 uint32_t sector = m_organism->getSector(m_map->getWidth(), m_map->getHeight());
-
+                
             
                 // only move if there is no wall at the target
                 if (!m_map->isWall(newX, newY)) {
@@ -225,10 +220,12 @@ void Game::runEpisodes(int episodes) {
                     State prevState = m_agent->getState();
 
                     running = m_organism->move(dx, dy);
-                    m_agent->updateState(m_map, start_ep);
-                    start_ep = false; // reset start_ep for the next iteration
+                    bool is_eating = m_map->isEating();
+
+                    // print check is_eating
+                    m_agent->updateState(m_map, is_eating);
                     //m_trainer->updateReplayBuffer(m_agent->getState());
-                    m_trainer->learn(m_agent->getState(), prevState, action, reward, running); // reward is 0 for now
+                    m_trainer->learn(m_agent->getState(), prevState, action, reward, running, food_rates, sector); // reward is 0 for now
                 }
                 else {
                     // print check
@@ -239,11 +236,12 @@ void Game::runEpisodes(int episodes) {
                     State prevState = m_agent->getState();
 
                     running = m_organism->move(0, 0);
-                    m_agent->updateState(m_map, start_ep);
-                    start_ep = false; // reset start_ep for the next iteration
+                    bool is_eating = m_map->isEating();
+                    m_agent->updateState(m_map, is_eating);
                     //m_trainer->updateReplayBuffer(m_agent->getState());
-                    m_trainer->learn(m_agent->getState(), prevState, action, reward, running); // reward is 0 for now
+                    m_trainer->learn(m_agent->getState(), prevState, action, reward, running, food_rates, sector); // reward is 0 for now
                 }
+                m_map->resetEating(); // Reset eating flag after drawing
             }
 
             int org_x, org_y;

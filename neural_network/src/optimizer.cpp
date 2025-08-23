@@ -2,11 +2,13 @@
 #include <layer_dense.h>
 
 
-Optimizer_SGD::Optimizer_SGD(double learning_rate, double decay, double step, double momentum) : 
+/*Optimizer_SGD::Optimizer_SGD(double learning_rate, double step, double momentum) : 
     m_learning_rate(learning_rate),
     m_decay(decay),
     m_step(step),
     m_momentum(momentum) {
+        
+
 }
 
 void Optimizer_SGD::pre_update_params() {
@@ -30,16 +32,21 @@ void Optimizer_SGD::update(LayerDense& layer) {
 void Optimizer_SGD::post_update_params() {
     // Reset decay
     m_step += 1;
-}
+}*/
+
+/* NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
+                    uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type, 
+                    double initial_lr, double beta1, double beta2, 
+                    double eps, int max_steps, double min_lr)*/
 
 Optimizer_Adam::Optimizer_Adam(double learning_rate,
                                double beta1,
                                double beta2,
                                double eps,
-                               double decay,
-                               double step)
-    : m_learning_rate(learning_rate),
-      m_decay(decay),
+                               double step,
+                               int max_steps,
+                               double min_lr)
+    : m_lr_scheduler(learning_rate, min_lr, max_steps),
       m_step(step),
       m_beta1(beta1),
       m_beta2(beta2),
@@ -48,9 +55,7 @@ Optimizer_Adam::Optimizer_Adam(double learning_rate,
 
 void Optimizer_Adam::pre_update_params() {
     m_step += 1;
-    if (m_decay) {
-        m_learning_rate = m_learning_rate / (1.0 + m_decay * m_step);
-    }
+    m_learning_rate = m_lr_scheduler.get_learning_rate(m_step);
 }
 
 void Optimizer_Adam::update(LayerDense &layer) {
