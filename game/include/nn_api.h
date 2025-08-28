@@ -4,6 +4,8 @@ extern "C" {
 
 #include <stdint.h>
 
+uint32_t parse_nn_params();
+
 uint32_t init_nn(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
     uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type);
 

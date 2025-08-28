@@ -83,6 +83,8 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     m_rnd_replay_buffer(REPLAY_BUFFER_CAPACITY),
     m_rnd_counter(0) {
 
+    parse_nn_params(); // parse the hyperparams used in the nn backend
+
     std::random_device rd;
     m_gen = std::mt19937(rd());
     // if model path does not exist, create directory and init nn
