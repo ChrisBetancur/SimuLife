@@ -7,3 +7,4 @@ rnd_models/
 test_model/
 count_lines.sh
 game/.DS_Store
+game/test_model_working

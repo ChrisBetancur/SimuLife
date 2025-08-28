@@ -21,8 +21,6 @@ uint32_t load_nn_model(const char* dirname, uint32_t nn_type);
 
 uint32_t randomize_weights(uint32_t id, uint32_t nn_type);
 
-void reset_episode(uint32_t id, uint32_t nn_type);
-
 #ifdef __cplusplus
 }                           // End extern "C" block
 #endif

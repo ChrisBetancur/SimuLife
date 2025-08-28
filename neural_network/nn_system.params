@@ -1,0 +1,17 @@
+RND_specs {
+    LR_INITIAL = 5e-5;
+    BETA1 = 0.9;
+    BETA2 = 0.999;
+    EPS = 1e-8;
+    max_training_steps = 1000000;
+    min_learning_rate = 1e-6;
+}
+
+DQN_specs {
+    LR_INITIAL = 1e-4;
+    BETA1 = 0.9;
+    BETA2 = 0.99;
+    EPS = 1e-7;
+    max_training_steps = 1000000;
+    min_learning_rate = 1e-5;
+}

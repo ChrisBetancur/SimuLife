@@ -158,3 +158,110 @@ bool read_model(const std::string& dirname, std::vector<LayerDense>& layers, NNI
         return false;
     }
 }
+
+// Helper function to trim whitespace from a string
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r");
+    if (std::string::npos == first) {
+        return str;
+    }
+    size_t last = str.find_last_not_of(" \t\n\r");
+    return str.substr(first, (last - first + 1));
+}
+
+// Generic function to parse key-value pairs from the file
+template<typename T>
+void parse_params(const std::string& file_path, T& params) {
+    std::ifstream file(file_path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file: " + file_path);
+    }
+
+    std::string line;
+    std::string current_spec;
+    while (std::getline(file, line)) {
+        line = trim(line);
+        if (line.empty() || line.front() == '#') {
+            continue;
+        }
+
+        // Check for the start of a new spec block
+        if (line.find("RND_specs") != std::string::npos) {
+            current_spec = "RND_specs";
+            continue;
+        }
+        if (line.find("DQN_specs") != std::string::npos) {
+            current_spec = "DQN_specs";
+            continue;
+        }
+
+        // If inside a spec block and not the end brace
+        if (!current_spec.empty() && line.find('}') == std::string::npos) {
+            size_t equals_pos = line.find('=');
+            if (equals_pos != std::string::npos) {
+                std::string key = trim(line.substr(0, equals_pos));
+                std::string value_str = trim(line.substr(equals_pos + 1));
+                
+                // Remove trailing semicolon if present
+                if (!value_str.empty() && value_str.back() == ';') {
+                    value_str.pop_back();
+                }
+
+                // Check which struct we are populating
+                if (current_spec == "RND_specs" && std::is_same<T, RND_Params>::value) {
+                    if (key == "LR_INITIAL") params.LR_INITIAL = std::stod(value_str);
+                    else if (key == "BETA1") params.BETA1 = std::stod(value_str);
+                    else if (key == "BETA2") params.BETA2 = std::stod(value_str);
+                    else if (key == "EPS") params.EPS = std::stod(value_str);
+                    else if (key == "max_training_steps") params.max_training_steps = std::stoi(value_str);
+                    else if (key == "min_learning_rate") params.min_learning_rate = std::stod(value_str);
+                } else if (current_spec == "DQN_specs" && std::is_same<T, DQN_Params>::value) {
+                    if (key == "LR_INITIAL") params.LR_INITIAL = std::stod(value_str);
+                    else if (key == "BETA1") params.BETA1 = std::stod(value_str);
+                    else if (key == "BETA2") params.BETA2 = std::stod(value_str);
+                    else if (key == "EPS") params.EPS = std::stod(value_str);
+                    else if (key == "max_training_steps") params.max_training_steps = std::stoi(value_str);
+                    else if (key == "min_learning_rate") params.min_learning_rate = std::stod(value_str);
+                }
+            }
+        }
+    }
+}
+
+bool parse_rnd_params(const std::string& param_file_path, RND_Params& rnd_params) {
+    namespace fs = std::filesystem;
+    
+    try {
+        // Check if param file exists
+        fs::path file_path = fs::path(param_file_path) / "nn_system.params";
+        if (!fs::exists(file_path)) {
+            throw std::runtime_error("NN System Params not found: " + file_path.string());
+        }
+
+        parse_params(file_path.string(), rnd_params);
+        
+        return true;
+    } catch(const std::exception& e) {
+        std::cerr << "Load NN Param Error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool parse_dqn_params(const std::string& param_file_path, DQN_Params& dqn_params) {
+    namespace fs = std::filesystem;
+    
+    try {
+        // Check if param file exists
+        fs::path file_path = fs::path(param_file_path) / "nn_system.params";
+        if (!fs::exists(file_path)) {
+            throw std::runtime_error("NN System Params not found: " + file_path.string());
+        }
+
+        parse_params(file_path.string(), dqn_params);
+        
+        return true;
+    } catch(const std::exception& e) {
+        std::cerr << "Load NN Param Error: " << e.what() << std::endl;
+        return false;
+    }
+}

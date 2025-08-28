@@ -7,27 +7,8 @@
 #include <memory>
 #include <io.h>
 
-#define LEARNING_RATE 0.1
-#define DECAY 0.0001
-#define MOMENTUM 0.3
-
-namespace RND {
-    const double LR_INITIAL = 5e-5;
-    const double BETA1 = 0.9;
-    const double BETA2 = 0.999;
-    const double EPS = 1e-8;
-    const int max_training_steps = 1000000;
-    const double min_learning_rate = 1e-6;
-}
-
-namespace DQN {
-    const double LR_INITIAL = 1e-4;
-    const double BETA1 = 0.9;
-    const double BETA2 = 0.99;
-    const double EPS = 1e-7;
-    const int max_training_steps = 1000000;
-    const double min_learning_rate = 1e-5;
-}
+RND_Params rnd_params;
+DQN_Params dqn_params;
 
 class NeuralNetwork {
 
@@ -134,22 +115,6 @@ class NeuralNetwork {
                     std::cerr << "Error: Layer weights or biases contain NaN values." << std::endl;
                     exit(1);
                 }
-            }
-        }
-
-        void reset_episode() {
-            for (auto& layer : m_layers) {
-                layer.m_inputs.reset();
-                layer.m_output.reset();
-                layer.m_dweights.reset();
-                layer.m_dbiases.reset();
-                layer.m_dinputs.reset();
-                }
-                
-            // Clear all activation matrices
-            for (auto& activation : m_activations) {
-                activation.m_inputs.reset();
-                activation.m_output.reset();
             }
         }
 
@@ -266,8 +231,40 @@ extern "C" {
     // vector of nn for RND -> target
     std::vector<std::unique_ptr<NeuralNetwork>> nn_rnd_target_instances; // id 3
 
+    uint32_t parse_nn_params() {
+        std::cout << "Hyperparameter Initilization for Neural Network" << std::endl;
+        
+        bool status = parse_dqn_params("../neural_network", dqn_params);
+        
+        if (status == false)
+            return 1;
+
+        std::cout << "DQN Initial Learning Rate: " << dqn_params.LR_INITIAL << std::endl;
+        std::cout << "DQN BETA1: " << dqn_params.BETA1 << std::endl;
+        std::cout << "DQN BETA2: " << dqn_params.BETA2<< std::endl;
+        std::cout << "DQN EPS: " << dqn_params.EPS << std::endl;
+        std::cout << "DQN Max Training Steps: " << dqn_params.max_training_steps << std::endl;
+        std::cout << "DQN Minimum Learning Rate: " << dqn_params.min_learning_rate << std::endl << std::endl;
+
+        status = parse_rnd_params("../neural_network", rnd_params);
+        if (status == false)
+            return 1;
+
+        std::cout << "RND Initial Learning Rate: " << rnd_params.LR_INITIAL << std::endl;
+        std::cout << "RND BETA1: " << rnd_params.BETA1 << std::endl;
+        std::cout << "RND BETA2: " << rnd_params.BETA2<< std::endl;
+        std::cout << "RND EPS: " << rnd_params.EPS << std::endl;
+        std::cout << "RND Max Training Steps: " << rnd_params.max_training_steps << std::endl;
+        std::cout << "RND Minimum Training Steps: " << rnd_params.min_learning_rate << std::endl;
+
+        std::cout << "End of Hyperparameter Initlization for Neural Network" << std::endl << std::endl;
+
+        return 0;
+    }
+
     uint32_t init_nn(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
                  uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) {
+
         // print intializing nn
         std::cout << "Initializing neural network with input_dim \n<" << input_dim 
                   << ", output_dim: " << output_dim 
@@ -277,18 +274,16 @@ extern "C" {
                   << ", nn_type (0=online, 1=target): " << nn_type
                   << ">" << std::endl;
 
-        
-
         if (nn_type == 0) {
             nn_online_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type, 
-                DQN::LR_INITIAL, DQN::BETA1, DQN::BETA2, DQN::EPS, DQN::max_training_steps, DQN::min_learning_rate));
+                dqn_params.LR_INITIAL, dqn_params.BETA1, dqn_params.BETA2, dqn_params.EPS, dqn_params.max_training_steps, dqn_params.min_learning_rate));
             // print out online and target instances
             std::cout << "Online instances: " << nn_online_instances.size() << std::endl;
             std::cout << "Target instances: " << nn_target_instances.size() << std::endl;
             return nn_online_instances.size() - 1;
         } else if (nn_type == 1) {
             nn_target_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type, 
-                DQN::LR_INITIAL, DQN::BETA1, DQN::BETA2, DQN::EPS, DQN::max_training_steps, DQN::min_learning_rate));
+                dqn_params.LR_INITIAL, dqn_params.BETA1, dqn_params.BETA2, dqn_params.EPS, dqn_params.max_training_steps, dqn_params.min_learning_rate));
             // print out online and target instances
             std::cout << "Online instances: " << nn_online_instances.size() << std::endl;
             std::cout << "Target instances: " << nn_target_instances.size() << std::endl;
@@ -296,11 +291,11 @@ extern "C" {
         }
         else if (nn_type == 2) {
             nn_rnd_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type, 
-                RND::LR_INITIAL, RND::BETA1, RND::BETA2, RND::EPS, RND::max_training_steps, RND::min_learning_rate));
+                rnd_params.LR_INITIAL, rnd_params.BETA1, rnd_params.BETA2, rnd_params.EPS, rnd_params.max_training_steps, rnd_params.min_learning_rate));
             return nn_rnd_instances.size() - 1;
         } else if (nn_type == 3) {
             nn_rnd_target_instances.push_back(std::make_unique<NeuralNetwork>(input_dim, output_dim, hidden_dim, num_m_layers, batch_size, nn_type, 
-                RND::LR_INITIAL, RND::BETA1, RND::BETA2, RND::EPS, RND::max_training_steps, RND::min_learning_rate));
+                rnd_params.LR_INITIAL, rnd_params.BETA1, rnd_params.BETA2, rnd_params.EPS, rnd_params.max_training_steps, rnd_params.min_learning_rate));
             return nn_rnd_target_instances.size() - 1;
         }
         else {
@@ -412,7 +407,7 @@ extern "C" {
                     meta.num_m_layers,
                     meta.batch_size,
                     meta.nn_type,
-                    DQN::LR_INITIAL, DQN::BETA1, DQN::BETA2, DQN::EPS, DQN::max_training_steps, DQN::min_learning_rate));
+                    dqn_params.LR_INITIAL, dqn_params.BETA1, dqn_params.BETA2, dqn_params.EPS, dqn_params.max_training_steps, dqn_params.min_learning_rate));
             } else if (meta.nn_type == 1) {
                 nn_target_instances.push_back(std::make_unique<NeuralNetwork>(
                     meta.input_dim,
@@ -421,7 +416,7 @@ extern "C" {
                     meta.num_m_layers,
                     meta.batch_size,
                     meta.nn_type,
-                    DQN::LR_INITIAL, DQN::BETA1, DQN::BETA2, DQN::EPS, DQN::max_training_steps, DQN::min_learning_rate));
+                    dqn_params.LR_INITIAL, dqn_params.BETA1, dqn_params.BETA2, dqn_params.EPS, dqn_params.max_training_steps, dqn_params.min_learning_rate));
             } else if (meta.nn_type == 2) {
                 nn_rnd_instances.push_back(std::make_unique<NeuralNetwork>(
                     meta.input_dim,
@@ -430,7 +425,7 @@ extern "C" {
                     meta.num_m_layers,
                     meta.batch_size,
                     meta.nn_type,
-                    RND::LR_INITIAL, RND::BETA1, RND::BETA2, RND::EPS, RND::max_training_steps, RND::min_learning_rate));
+                    rnd_params.LR_INITIAL, rnd_params.BETA1, rnd_params.BETA2, rnd_params.EPS, rnd_params.max_training_steps, rnd_params.min_learning_rate));
             } else if (meta.nn_type == 3) {
                 nn_rnd_target_instances.push_back(std::make_unique<NeuralNetwork>(
                     meta.input_dim,
@@ -439,7 +434,7 @@ extern "C" {
                     meta.num_m_layers,
                     meta.batch_size,
                     meta.nn_type,
-                    RND::LR_INITIAL, RND::BETA1, RND::BETA2, RND::EPS, RND::max_training_steps, RND::min_learning_rate));
+                    rnd_params.LR_INITIAL, rnd_params.BETA1, rnd_params.BETA2, rnd_params.EPS, rnd_params.max_training_steps, rnd_params.min_learning_rate));
             } else {
                 throw std::runtime_error("Invalid neural network type");
             }
@@ -479,25 +474,6 @@ extern "C" {
         exit(1);
     }
 
-    void reset_episode(uint32_t id, uint32_t nn_type) {
-        if (nn_type == 0) {
-            nn_online_instances[id]->reset_episode();
-        }
-        else if (nn_type == 1) {
-            nn_target_instances[id]->reset_episode();
-        }
-        else if (nn_type == 2) {
-            nn_rnd_instances[id]->reset_episode();
-        }
-        else if (nn_type == 3) {
-            nn_rnd_target_instances[id]->reset_episode();
-        }
-        // If nn_type is not recognized, print an error message
-        else {
-            std::cerr << "Error: Invalid neural network type" << std::endl;
-            exit(1);
-        }
-    }
 
 
 
