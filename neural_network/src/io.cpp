@@ -9,15 +9,12 @@
 
 bool write_model(const std::string& dirname, const std::vector<LayerDense>& layers, uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
     uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type) {
-    //layers->clear();
-    //layers->resize(num_m_layers);
-    // Validate input
+
     if (layers.empty()) {
         throw std::runtime_error("No layers to write");
         return false;
     }
 
-    // Create directory if it doesn't exist
     std::filesystem::create_directories(dirname);
 
     std::error_code dir_error;
