@@ -8,3 +8,6 @@ test_model/
 count_lines.sh
 game/.DS_Store
 game/test_model_working
+game/lib/libnn_api.dylib
+game/bin
+neural_network/bin

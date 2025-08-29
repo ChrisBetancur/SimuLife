@@ -20,6 +20,8 @@
 #define DQN_ONLINE_ID 0 // ID for DQN online
 #define DQN_TARGET_ID 1 // ID for DQN target
 
+#define DQN_BATCH_SIZE 64
+
 #define RND_INPUT_DIM 11 // 4 genome + 1 energy level + 6 food rates
 #define RND_OUTPUT_DIM 128 // Assuming 64 outputs for RND
 #define RND_HIDDEN_DIM 512 // Hidden dimension for RND networks

@@ -78,7 +78,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     m_discount_factor(discount_factor),
     m_learning_rate(learning_rate),
     replay_buffer_size(REPLAY_BUFFER_CAPACITY),
-    batch_size(64),
+    batch_size(DQN_BATCH_SIZE),
     learning_counter(0),
     m_rnd_replay_buffer(REPLAY_BUFFER_CAPACITY),
     m_rnd_counter(0) {
