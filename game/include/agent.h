@@ -8,8 +8,13 @@
 #include <random>
 #include <policy.h>
 #include <rl_utils.h>
+#include <io_frontend.h>
 
 #define TARGET_NN_UPDATE_INTERVAL 1000
+
+IO_FRONTEND::DQN_Params dqn_parameters;
+IO_FRONTEND::RND_Params rnd_parameters;
+IO_FRONTEND::BoltzmannPolicy_Params boltzmann_parameters;
 
 class Agent {
     private:

@@ -1,5 +1,5 @@
 RND_specs {
-    LR_INITIAL = 5e-5;
+    LR_INITIAL = 1e-5;
     BETA1 = 0.9;
     BETA2 = 0.999;
     EPS = 1e-8;

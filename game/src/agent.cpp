@@ -17,6 +17,27 @@ Agent::Agent(Organism* organism):
 }
 
 void Agent::setPolicy(PolicyType policy_type) {
+    /*int status = parse_rnd_params("game/rl_system.params", rnd_parameters);
+    
+    if (status == false) {
+        std::cerr << "Error parsing RND parameters for frontend" << std::endl;
+        exit(1);
+    }
+
+    status = parse_dqn_params("game/rl_system.params", dqn_parameters);
+
+    if (status == false) {
+        std::cerr << "Error parsing DQN parameters for frontend" << std::endl;
+        exit(1);
+    }*/
+
+    int status = parse_boltzmann_params("game/rl_system.params", rnd_parameters);
+
+    if (status == false) {
+        std::cerr << "Error parsing Boltzmann parameters for frontend" << std::endl;
+        exit(1);
+    }
+
     m_policy_type = policy_type;
     // Free the existing policy if it exists
     if (m_epsilon_policy) {
@@ -31,7 +52,8 @@ void Agent::setPolicy(PolicyType policy_type) {
     if (policy_type == PolicyType::EPSILON_GREEDY) {
         m_epsilon_policy = new EpsilonGreedyPolicy(0.1, 0.9995, 0.06);
     } else if (policy_type == PolicyType::BOLTZMANN) {
-        m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9999995, 0.1, 2);
+        //m_boltzmann_policy = new BoltzmannPolicy(1.0, 0.9999995, 0.1, 2);
+        m_boltzmann_policy = new BoltzmannPolicy(boltzmann_parameters.initial_temp, boltzmann_parameters.decay_rate, boltzmann_parameters.min_temp, boltzmann_parameters.decay_interval);
     } else {
         throw std::invalid_argument("Unknown policy type");
     }
@@ -85,6 +107,20 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
 
     parse_nn_params(); // parse the hyperparams used in the nn backend
 
+    int status = parse_rnd_params("game/rl_system.params", rnd_parameters);
+    
+    if (status == false) {
+        std::cerr << "Error parsing RND parameters for frontend" << std::endl;
+        exit(1);
+    }
+
+    status = parse_dqn_params("game/rl_system.params", dqn_parameters);
+
+    if (status == false) {
+        std::cerr << "Error parsing DQN parameters for frontend" << std::endl;
+        exit(1);
+    }
+
     std::random_device rd;
     m_gen = std::mt19937(rd());
     // if model path does not exist, create directory and init nn
@@ -92,7 +128,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         std::filesystem::create_directories(model_path);
         std::cout << "Creating new model directory: " << model_path << std::endl;
         // Initialize online neural network with default parameters
-        init_nn(DQN_INPUT_DIM, DQN_OUTPUT_DIM, DQN_HIDDEN_DIM, DQN_NUM_LAYERS, batch_size, DQN_ONLINE_ID); // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
+        init_nn(dqn_parameters.DQN_INPUT_DIM, dqn_parameters.DQN_OUTPUT_DIM, dqn_parameters.DQN_HIDDEN_DIM, dqn_parameters.DQN_NUM_LAYERS, dqn_parameters.DQN_BATCH_SIZE, dqn_parameters.DQN_ONLINE_ID); // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall)
     }
     else {
         const char* model_path_cstr = model_path.c_str();
@@ -100,7 +136,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
         uint32_t id = load_nn_model(model_path_cstr, 0);
     }
     // Initialize target neural network
-    init_nn(DQN_INPUT_DIM, DQN_OUTPUT_DIM, DQN_HIDDEN_DIM, DQN_NUM_LAYERS, batch_size, DQN_TARGET_ID);
+    init_nn(dqn_parameters.DQN_INPUT_DIM, dqn_parameters.DQN_OUTPUT_DIM, dqn_parameters.DQN_HIDDEN_DIM, dqn_parameters.DQN_NUM_LAYERS, dqn_parameters.DQN_BATCH_SIZE, dqn_parameters.DQN_TARGET_ID);
     // copy the online nn to the target nn
     update_target_nn(0, 0); // copy the online nn to the target nn at index 0
 
@@ -114,12 +150,11 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
                              + model_path 
                              + "/predictor";
 
-
     if (!std::filesystem::exists(full_predictor_path)) {
         //print check
         std::cout << "Initializing RND predictor neural network" << std::endl;
         // Initialize RND predictor neural network
-        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, RND_BATCH_SIZE, RND_PREDICTOR_ID);
+        init_nn(rnd_parameters.RND_INPUT_DIM, rnd_parameters.RND_OUTPUT_DIM, rnd_parameters.RND_HIDDEN_DIM, rnd_parameters.RND_NUM_LAYERS, rnd_parameters.RND_BATCH_SIZE, rnd_parameters.RND_PREDICTOR_ID);
     }
     else {
         std::cout << "Loading RND predictor neural network from: " << full_predictor_path << std::endl;
@@ -130,7 +165,7 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     if (!std::filesystem::exists(full_target_path)) {
 
         // Initialize RND target neural network
-        init_nn(RND_INPUT_DIM, RND_OUTPUT_DIM, RND_HIDDEN_DIM, RND_NUM_LAYERS, RND_BATCH_SIZE, RND_TARGET_ID);
+        init_nn(rnd_parameters.RND_INPUT_DIM, rnd_parameters.RND_OUTPUT_DIM, rnd_parameters.RND_HIDDEN_DIM, rnd_parameters.RND_NUM_LAYERS, rnd_parameters.RND_BATCH_SIZE, rnd_parameters.RND_TARGET_ID);
         randomize_weights(0, 3); // Randomize weights for the target network
     }
     else {

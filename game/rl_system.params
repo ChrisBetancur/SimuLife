@@ -1,6 +1,6 @@
 BoltzmannPolicy_specs {
     initial_temp = 1.0; 
-    decay_rate = 0.9999995;
+    decay_rate = 0.99;
     min_temp = 0.1;
     decay_interval = 2;
 }
@@ -17,8 +17,8 @@ RND_req_specs {
     RND_INPUT_DIM = 11; // 4 genome + 1 energy level + 6 food rates
     RND_OUTPUT_DIM = 128; // Assuming 64 outputs for RND
     RND_HIDDEN_DIM = 512; // Hidden dimension for RND networks
-    RND_NUM_LAYERS = 7; // Number of layers for RND networks
-    RND_BATCH_SIZE = 32; // Batch size for RND training
+    RND_NUM_LAYERS = 3; // Number of layers for RND networks
+    RND_BATCH_SIZE = 128; // Batch size for RND training
 }
 
 REPLAY_BUFFER_CAPACITY = 10000
