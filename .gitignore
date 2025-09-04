@@ -2,6 +2,7 @@ neural_network/obj
 neural_network/obj-lib
 game/obj
 game/.venv
+game/venv
 .vscode
 rnd_models/
 test_model/

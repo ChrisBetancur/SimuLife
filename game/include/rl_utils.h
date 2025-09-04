@@ -9,16 +9,16 @@
 #include <rl_utils.h>
 #include <nn_api.h>
 #include <cmath>
+#include <io_frontend.h>
 
 #define MAX_ENERGY 100.0f
-
+/*
 #define DQN_INPUT_DIM 8 // 4 genome + 1 energy level + 2 vision (food count and is_wall) + 1 is_eating
 #define DQN_OUTPUT_DIM 4 // Assuming 4 actions: UP, DOWN, LEFT, RIGHT
 #define DQN_HIDDEN_DIM 64 // Hidden dimension for DQN networks
 #define DQN_NUM_LAYERS 3 // Number of layers for DQN networks
 
-#define DQN_ONLINE_ID 0 // ID for DQN online
-#define DQN_TARGET_ID 1 // ID for DQN target
+
 
 #define DQN_BATCH_SIZE 64
 
@@ -27,12 +27,21 @@
 #define RND_HIDDEN_DIM 512 // Hidden dimension for RND networks
 #define RND_NUM_LAYERS 7 // Number of layers for RND networks
 
-#define RND_PREDICTOR_ID 2 // ID for RND predictor
-#define RND_TARGET_ID 3 // ID for RND target
+
 
 #define RND_BATCH_SIZE 32 // Batch size for RND training
 
-#define REPLAY_BUFFER_CAPACITY 10000 // Capacity for RND replay buffer
+#define REPLAY_BUFFER_CAPACITY 10000 // Capacity for RND replay buffer*/
+
+#define DQN_ONLINE_ID 0 // ID for DQN online
+#define DQN_TARGET_ID 1 // ID for DQN target
+
+#define RND_PREDICTOR_ID 2 // ID for RND predictor
+#define RND_TARGET_ID 3 // ID for RND target
+
+extern IO_FRONTEND::DQN_Params dqn_parameters;
+extern IO_FRONTEND::RND_Params rnd_parameters;
+extern IO_FRONTEND::BoltzmannPolicy_Params boltzmann_parameters;
 
 inline double tanh_scale(double x, double amplitude, double sensitivity) {
     if (sensitivity <= 0.0) sensitivity = 1.0;
@@ -71,10 +80,11 @@ class RND_replay_buffer {
         size_t capacity;
         size_t size;
         std::mt19937 m_gen;
+        IO_FRONTEND::RND_Params m_rnd_parameters;
 
     public:
         // Constructor
-        RND_replay_buffer(size_t capacity);
+        RND_replay_buffer(size_t capacity, IO_FRONTEND::RND_Params rnd_parameters);
 
         // Member functions
         void add(double* value);

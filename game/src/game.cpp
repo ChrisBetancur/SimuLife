@@ -1,6 +1,10 @@
 #include <game.h>
 #include <rl_utils.h>
 #include <logger.h>
+#include <io_frontend.h>
+
+#define MAP_WIDTH 1080
+#define MAP_HEIGHT 1080
 
 
 
@@ -17,10 +21,10 @@ Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpi
     }
 
     m_window = SDL_CreateWindow("SimuLife", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                             800, 600, SDL_WINDOW_SHOWN);
+                             MAP_WIDTH, MAP_HEIGHT, SDL_WINDOW_SHOWN);
     m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED);
-    
-    m_map = new Map(800, 600);
+
+    m_map = new Map(MAP_WIDTH, MAP_HEIGHT);
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -38,7 +42,9 @@ Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpi
     //m_map->addOrganism(x, y, {1, MAX_ORGANISM_VISION_DEPTH, MAX_ORGANISM_SPEED, MIN_ORGANISM_SIZE});
 
     m_agent = new Agent(m_organism);
-    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model");
+    int buf_size;
+    IO_FRONTEND::parse_buffer_capacity("../game/rl_system.params", buf_size);
+    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model", buf_size);
 }
 
 Game::~Game() {

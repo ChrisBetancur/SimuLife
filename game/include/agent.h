@@ -12,9 +12,9 @@
 
 #define TARGET_NN_UPDATE_INTERVAL 1000
 
-IO_FRONTEND::DQN_Params dqn_parameters;
-IO_FRONTEND::RND_Params rnd_parameters;
-IO_FRONTEND::BoltzmannPolicy_Params boltzmann_parameters;
+extern IO_FRONTEND::RND_Params rnd_parameters;
+extern IO_FRONTEND::DQN_Params dqn_parameters;
+extern IO_FRONTEND::BoltzmannPolicy_Params boltzmann_parameters;
 
 class Agent {
     private:
@@ -22,7 +22,6 @@ class Agent {
         State m_state;
         Action m_action;
 
-        EpsilonGreedyPolicy* m_epsilon_policy;
         BoltzmannPolicy* m_boltzmann_policy;
 
         PolicyType m_policy_type;
@@ -66,7 +65,7 @@ class Trainer {
         std::mt19937 m_gen;
 
     public:
-        Trainer(Agent* agent, Map* map, double discount_factor = 0.9, double learning_rate = 0.001, std::string model_path = "");
+        Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path, int buffer_size);
 
         ~Trainer();
         

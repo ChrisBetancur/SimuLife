@@ -53,8 +53,8 @@
 RND_replay_buffer rnd_replay_buffer(1000);
 int rnd_counter = 0;*/
 
-RND_replay_buffer::RND_replay_buffer(size_t capacity) 
-    : capacity(capacity), size(0) {
+RND_replay_buffer::RND_replay_buffer(size_t capacity, IO_FRONTEND::RND_Params rnd_parameters) 
+    : capacity(capacity), size(0), m_rnd_parameters(rnd_parameters) {
     buffer.reserve(capacity);
     std::random_device rd;
     m_gen = std::mt19937(rd());
@@ -63,7 +63,7 @@ RND_replay_buffer::RND_replay_buffer(size_t capacity)
 // Function implementations
 void RND_replay_buffer::add(double* value) {
     // convert value to vector
-    std::vector<double> vec(value, value + RND_INPUT_DIM);
+    std::vector<double> vec(value, value + m_rnd_parameters.RND_INPUT_DIM);
     if (size < capacity) {
         buffer.push_back(vec);
         size++;
@@ -77,11 +77,11 @@ double* RND_replay_buffer::get_batch(size_t batch_size) {
     if (batch_size > size) {
         throw std::runtime_error("Batch size exceeds current buffer size");
     }
-    double* batch = new double[batch_size * RND_INPUT_DIM];
+    double* batch = new double[batch_size * m_rnd_parameters.RND_INPUT_DIM];
     std::uniform_int_distribution<> distrib(0, size - 1);
     for (size_t i = 0; i < batch_size; ++i) {
         int random_index = distrib(m_gen);
-        std::copy(buffer[random_index].begin(), buffer[random_index].end(), batch + i * RND_INPUT_DIM);
+        std::copy(buffer[random_index].begin(), buffer[random_index].end(), batch + i * m_rnd_parameters.RND_INPUT_DIM);
     }
     return batch;
 }
@@ -92,17 +92,20 @@ size_t RND_replay_buffer::current_size() const {
 
 double computeIntrinsicReward(double* input_data) {
 
-    double* pred_out = new double[RND_OUTPUT_DIM];
+    IO_FRONTEND::RND_Params rnd_parameters;
+    parse_rnd_params("../game/rl_system.params", rnd_parameters);
+
+    double* pred_out = new double[rnd_parameters.RND_OUTPUT_DIM];
     predict_nn(0, RND_PREDICTOR_ID, input_data, pred_out, 1); // Pass batch size of 1
 
-    double* targ_out = new double[RND_OUTPUT_DIM];
+    double* targ_out = new double[rnd_parameters.RND_OUTPUT_DIM];
     predict_nn(0, RND_TARGET_ID, input_data, targ_out, 1); // Pass batch size of 1
 
     // 2. Compute the MSE for this single state
     double mse = 0.0;
     double mean_abs_t = 0.0;
 
-    for (int i = 0; i < RND_OUTPUT_DIM; ++i) {
+    for (int i = 0; i < rnd_parameters.RND_OUTPUT_DIM; ++i) {
         if (std::isnan(pred_out[i]) || std::isinf(pred_out[i]) ||
             std::isnan(targ_out[i]) || std::isinf(targ_out[i])) {
             std::cerr << "Error: NaN or infinite value encountered in intrinsic reward computation." << std::endl;
@@ -113,9 +116,9 @@ double computeIntrinsicReward(double* input_data) {
         mean_abs_t += std::abs(targ_out[i]);
     }
     
-    mse /= double(RND_OUTPUT_DIM);
+    mse /= double(rnd_parameters.RND_OUTPUT_DIM);
     double rmse = std::sqrt(mse);
-    mean_abs_t /= double(RND_OUTPUT_DIM);
+    mean_abs_t /= double(rnd_parameters.RND_OUTPUT_DIM);
 
     double rel_rmse = rmse / (1.0 + mean_abs_t);
     double metric = rel_rmse;
@@ -181,12 +184,17 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     bool enable_rnd, bool hit_wall, int org_x, int org_y,
     Direction dir, int wall_pos_x, int wall_pos_y) {
 
+    IO_FRONTEND::RND_Params rnd_parameters;
+    IO_FRONTEND::parse_rnd_params("../game/rl_system.params", rnd_parameters);
+
+    IO_FRONTEND::DQN_Params dqn_parameters;
+    IO_FRONTEND::parse_dqn_params("../game/rl_system.params", dqn_parameters);
+
     if (!enable_rnd) {
         // If RND is not enabled, use the extrinsic reward only
         double extrinsic_reward = computeExtrinsicReward(state, action, hit_wall, org_x, org_y, dir, wall_pos_x, wall_pos_y);
         Logger::getInstance().log(LogType::DEBUG, "Extrinsic Reward: " + std::to_string(extrinsic_reward));
         return extrinsic_reward;
-
     }
 
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
@@ -222,8 +230,14 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
 
 double* prepareInputData(State state, bool is_RND, std::vector<double> food_rates, uint32_t organism_sector) {
 
+    IO_FRONTEND::RND_Params rnd_parameters;
+    IO_FRONTEND::parse_rnd_params("../game/rl_system.params", rnd_parameters);
+
+    IO_FRONTEND::DQN_Params dqn_parameters;
+    IO_FRONTEND::parse_dqn_params("../game/rl_system.params", dqn_parameters);
+
     if (is_RND) {
-        size_t input_size = RND_INPUT_DIM; // 9 represents food eating rates, 1 for energy level total, sector_organism = 11 inputs
+        size_t input_size = rnd_parameters.RND_INPUT_DIM; // 9 represents food eating rates, 1 for energy level total, sector_organism = 11 inputs
         double* input_data = new double[input_size];  // Allocate as a single array
 
         input_data[0] = organism_sector;
@@ -242,7 +256,7 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
 
     }
 
-    size_t input_size = DQN_INPUT_DIM; // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall), is_eating
+    size_t input_size = dqn_parameters.DQN_INPUT_DIM; // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall), is_eating
     double* input_data = new double[input_size];  // Allocate as a single array
 
     // Populate data
@@ -256,39 +270,6 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     input_data[6] = static_cast<double>(std::get<1>(state.vision)); // is_wall
     input_data[7] = static_cast<double>(state.is_eating); // wall_distance
     
-    // 1. i=0, 4<25, [8]
-    // 2. i=4, 8<25, [12]
-    // 3. i=8, 12<25, [16]
-    // 4. i=12, 16<25, [20]
-    // 5. i=16, 20<25, [24]
-    // 6. i=20, 24<25, [28]
-
-    // Add vision data
-    /*size_t i;
-    for (i = 0; i + 4 < state.vision.size(); i += 4) {
-        if (state.vision[i] == EMPTY) {
-            input_data[5 + i] = 1.0; // One-hot encoding for EMPTY
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == WALL) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 1.0; // One-hot encoding for WALL
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == FOOD) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 1.0; // One-hot encoding for FOOD
-            input_data[5 + i + 3] = 0.0;
-        } else if (state.vision[i] == ORGANISM) {
-            input_data[5 + i] = 0.0;
-            input_data[5 + i + 1] = 0.0;
-            input_data[5 + i + 2] = 0.0;
-            input_data[5 + i + 3] = 1.0; // One-hot encoding for ORGANISM
-        }
-    }*/
-
     return input_data;
     
 }

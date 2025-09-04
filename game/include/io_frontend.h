@@ -1,22 +1,24 @@
 #ifndef IO_FRONTEND_H
 #define IO_FRONTEND_H
 
+#include <string>
+
 namespace IO_FRONTEND {
 
     struct RND_Params {
-        int DQN_INPUT_DIM;
-        int DQN_OUTPUT_DIM;
-        int DQN_HIDDEN_DIM;
-        int DQN_NUM_LAYERS;
-        int DQN_BATCH_SIZE;
-    };
-
-    struct DQN_Params {
         int RND_INPUT_DIM;
         int RND_OUTPUT_DIM;
         int RND_HIDDEN_DIM;
         int RND_NUM_LAYERS;
         int RND_BATCH_SIZE;
+    };
+
+    struct DQN_Params {
+        int DQN_INPUT_DIM;
+        int DQN_OUTPUT_DIM;
+        int DQN_HIDDEN_DIM;
+        int DQN_NUM_LAYERS;
+        int DQN_BATCH_SIZE;
     };
 
     bool parse_rnd_params(const std::string& param_file_path, RND_Params& rnd_params); // parse RND hyperparam file, return success or not
