@@ -200,20 +200,9 @@ Trainer::~Trainer() {
 }
 
 void Trainer::learn_from_batch() {
-
-    // print batch size
-    std::cout << "Batch size: " << batch_size << std::endl;
     // Serves as the inputs for the neural network training
     double* states_batch = new double[batch_size * dqn_parameters.DQN_INPUT_DIM];
     double* next_states_batch = new double[batch_size * dqn_parameters.DQN_INPUT_DIM];
-
-    // print all parameters in dqn_parameters struct
-    std::cout << "DQN Parameters:" << std::endl;
-    std::cout << "DQN_INPUT_DIM: " << dqn_parameters.DQN_INPUT_DIM << std::endl;
-    std::cout << "DQN_OUTPUT_DIM: " << dqn_parameters.DQN_OUTPUT_DIM << std::endl;
-    std::cout << "DQN_HIDDEN_DIM: " << dqn_parameters.DQN_HIDDEN_DIM << std::endl;
-    std::cout << "DQN_NUM_LAYERS: " << dqn_parameters.DQN_NUM_LAYERS << std::endl;
-    std::cout << "DQN_BATCH_SIZE: " << dqn_parameters.DQN_BATCH_SIZE << std::endl;
 
     double* rewards_batch = new double[batch_size];
     double* dones_batch = new double[batch_size];

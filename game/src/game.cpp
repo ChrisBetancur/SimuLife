@@ -3,8 +3,8 @@
 #include <logger.h>
 #include <io_frontend.h>
 
-#define MAP_WIDTH 1080
-#define MAP_HEIGHT 1080
+#define MAP_WIDTH 900
+#define MAP_HEIGHT 900
 
 
 
