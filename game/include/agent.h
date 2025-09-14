@@ -64,8 +64,10 @@ class Trainer {
         int target_nn_update_counter;
         std::mt19937 m_gen;
 
+        bool m_rndEnabled;
+
     public:
-        Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path, int buffer_size);
+        Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path, int buffer_size, bool enable_rnd);
 
         ~Trainer();
         
@@ -83,6 +85,8 @@ class Trainer {
         void updateReplayBuffer(Transition transition);
 
         std::vector<Transition> getReplayBuffer() const { return replay_buffer; }
+
+        void setRNDEnabled(bool enabled) { m_rndEnabled = enabled; }
 
 
 };

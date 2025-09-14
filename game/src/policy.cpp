@@ -125,6 +125,7 @@ int BoltzmannPolicy::selectAction(double* q_values) {
 }
 // In your agent code:
 Action BoltzmannPolicy::selectAction(uint32_t id, uint32_t nn_type, State state) {
+    // verify that state is not null or inv
     // Prepare input data
     double* input_data = prepareInputData(state, false, {}, 0);
     

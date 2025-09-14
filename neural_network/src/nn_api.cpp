@@ -25,6 +25,8 @@ class NeuralNetwork {
         uint32_t m_output_dim;
         uint32_t m_hidden_dim;
 
+        std::ofstream m_log_file;
+
         NeuralNetwork(uint32_t input_dim, uint32_t output_dim, uint32_t hidden_dim, 
                     uint32_t num_m_layers, uint32_t batch_size, uint32_t nn_type, 
                     double initial_lr, double beta1, double beta2, 
@@ -83,6 +85,39 @@ class NeuralNetwork {
                     exit(1);
                 }
             }
+
+            std::string filename;
+            switch (m_nn_type) {
+                case 0: filename = "online_system.log"; break;
+                case 2: filename = "rnd_predictor_system.log"; break;
+                default: filename = ""; break; // No log for target networks
+            }
+
+            if (!filename.empty()) {
+                std::filesystem::create_directory("logs");
+                std::string full_path = "logs/" + filename; 
+                
+                // Add this line to ensure a clean file for logging
+                if (std::filesystem::exists(full_path)) {
+                    std::filesystem::remove(full_path);
+                }
+
+                m_log_file.open(full_path, std::ios::app);
+
+                if (!m_log_file.is_open()) {
+                    std::cerr << "Error: Could not open log file " << full_path << ". Reason: " << strerror(errno) << std::endl;
+                    // It is safer to exit or throw here, as logging won't work otherwise.
+                } else {
+                    std::cout << "Successfully opened log file: " << full_path << std::endl;
+                }
+            }
+
+        }
+
+        ~NeuralNetwork() {
+            if (m_log_file.is_open()) {
+                m_log_file.close();
+            }
         }
 
         NeuralNetwork(const NeuralNetwork& other) :
@@ -116,6 +151,7 @@ class NeuralNetwork {
                     exit(1);
                 }
             }
+
         }
 
         void cleanup() {
@@ -190,7 +226,25 @@ class NeuralNetwork {
 
             arma::mat expected_output(target_data, m_layers.back().m_output.n_rows, m_layers.back().m_output.n_cols, true, false);
 
+            double loss = mse_loss(m_layers.back().m_output, expected_output);
+
+            /*const double huber_delta = 1.0;
+            double loss = huber_loss(m_layers.back().m_output, expected_output, huber_delta);*/
+
+            if (m_log_file.is_open() && (m_nn_type == 0 || m_nn_type == 2)) {
+                m_log_file << loss << std::endl;
+                m_log_file.flush();
+            }
+
+            // if nn_type is 0 write hello to log file
+            if (m_log_file.is_open() && m_log_file.good()) {
+                // If nn_type is 0 (online) or 2 (RND predictor) log the loss
+                m_log_file << std::setprecision(5) << loss << std::endl;
+                m_log_file.flush();
+            }
+
             arma::mat d_loss = derivative_mse_loss(m_layers.back().m_output, expected_output);
+            //arma::mat d_loss = derivative_huber_loss(m_layers.back().m_output, expected_output, huber_delta);
             
             m_layers.back().backward(d_loss);
             arma::mat d_act;

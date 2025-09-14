@@ -16,24 +16,17 @@ IO_FRONTEND::BoltzmannPolicy_Params boltzmann_parameters;
 Agent::Agent(Organism* organism):
     m_organism(organism) {  // Dynamically allocate
 
+    m_state.genome = m_organism->getGenome();
+    m_state.energy_lvl = m_organism->getEnergy();
+    m_state.vision = {};
+    m_state.food_count = 0;
+    m_state.is_eating = false; // Set the flag for new episode
+
     //m_epsilon_policy = nullptr;
     m_boltzmann_policy = nullptr;
 }
 
 void Agent::setPolicy(PolicyType policy_type) {
-    /*int status = parse_rnd_params("../game/rl_system.params", rnd_parameters);
-    
-    if (status == false) {
-        std::cerr << "Error parsing RND parameters for frontend" << std::endl;
-        exit(1);
-    }
-
-    status = parse_dqn_params("../game/rl_system.params", dqn_parameters);
-
-    if (status == false) {
-        std::cerr << "Error parsing DQN parameters for frontend" << std::endl;
-        exit(1);
-    }*/
 
     int status = parse_boltzmann_params("../game/rl_system.params", boltzmann_parameters);
 
@@ -43,11 +36,6 @@ void Agent::setPolicy(PolicyType policy_type) {
     }
 
     m_policy_type = policy_type;
-    // Free the existing policy if it exists
-    /*if (m_epsilon_policy) {
-        delete m_epsilon_policy;
-        m_epsilon_policy = nullptr;
-    }*/
     if (m_boltzmann_policy) {
         delete m_boltzmann_policy;
         m_boltzmann_policy = nullptr;
@@ -93,7 +81,7 @@ Action Agent::chooseAction() {
         case PolicyType::EPSILON_GREEDY:
             //return m_epsilon_policy->selectAction(0, 0, m_state);
         case PolicyType::BOLTZMANN:
-            return m_boltzmann_policy->selectAction(0, 0, m_state);
+            return m_boltzmann_policy->selectAction(0, DQN_ONLINE_ID, m_state);
         default:
             throw std::invalid_argument("Unknown policy type");
     }
@@ -111,7 +99,7 @@ RND_replay_buffer createRNDReplayBuffer(int buffer_size) {
     return RND_replay_buffer(buffer_size, rnd_parameters);
 }
 
-Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path, int buffer_size):
+Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning_rate, std::string model_path, int buffer_size, bool enable_rnd):
     m_agent(agent),
     m_map(map),
     m_discount_factor(discount_factor),
@@ -119,7 +107,8 @@ Trainer::Trainer(Agent* agent, Map* map, double discount_factor, double learning
     replay_buffer_size(buffer_size),
     learning_counter(0),
     m_rnd_counter(0),
-    m_rnd_replay_buffer(createRNDReplayBuffer(buffer_size)) {
+    m_rnd_replay_buffer(createRNDReplayBuffer(buffer_size)),
+    m_rndEnabled(enable_rnd) {
 
     parse_nn_params(); // parse the hyperparams used in the nn backend
 
@@ -218,9 +207,6 @@ void Trainer::learn_from_batch() {
         double* input_data = prepareInputData(transition.state, false, {}, 0);
         double* next_input_data = prepareInputData(transition.next_state, false, {}, 0);
 
-        // CORRECT WAY to copy data to the batch
-        // only works for non RND learning
-        // Corrected
         std::copy(input_data, input_data + dqn_parameters.DQN_INPUT_DIM, states_batch + i * dqn_parameters.DQN_INPUT_DIM);
         std::copy(next_input_data, next_input_data + dqn_parameters.DQN_INPUT_DIM, next_states_batch + i * dqn_parameters.DQN_INPUT_DIM);
 
@@ -234,11 +220,41 @@ void Trainer::learn_from_batch() {
     
 
     // 3. Prepare the target values
+    /*double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);*/
+
+    /*double* online_q_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    predict_nn(0, DQN_ONLINE_ID, states_batch, online_q_values, batch_size);
+
+    double* target_values_next_state = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values_next_state, batch_size);
+
     double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    std::copy(online_q_values, online_q_values + batch_size * dqn_parameters.DQN_OUTPUT_DIM, target_values);
+
+    for (int i = 0; i < batch_size; ++i) {
+        double max_next_q = *std::max_element(target_values_next_state + i * dqn_parameters.DQN_OUTPUT_DIM, target_values_next_state + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
+            
+        double target_q = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
+            
+
+        target_values[i * dqn_parameters.DQN_OUTPUT_DIM + static_cast<int>(actions_batch[i])] = target_q;
+    }*/
+
+    /*double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
     predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);
 
     double* online_q_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
     predict_nn(0, DQN_ONLINE_ID, states_batch, online_q_values, batch_size);
+
+    // print q values
+    for (int i = 0; i < batch_size; ++i) {
+        std::cout << "State " << i << " Q-values: ";
+        for (int j = 0; j < dqn_parameters.DQN_OUTPUT_DIM; ++j) {
+            std::cout << online_q_values[i * dqn_parameters.DQN_OUTPUT_DIM + j] << " ";
+        }
+        std::cout << std::endl;
+    }
 
     for (int i = 0; i < batch_size; ++i) {
         double max_next_q = *std::max_element(target_values + i * dqn_parameters.DQN_OUTPUT_DIM, target_values + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
@@ -249,12 +265,34 @@ void Trainer::learn_from_batch() {
                 target_values[i * dqn_parameters.DQN_OUTPUT_DIM + j] = online_q_values[i * dqn_parameters.DQN_OUTPUT_DIM + j];
             }
         }
+    }*/
+
+    double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);
+
+    // 4. Perform the Bellman update on the target values
+    for (int i = 0; i < batch_size; ++i) {
+        double max_next_q = *std::max_element(target_values + i * dqn_parameters.DQN_OUTPUT_DIM, target_values + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
+        
+        // This is the new target value for the action that was taken
+        double target_q = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
+        
+        // Update ONLY the element for the action that was taken
+        int action_taken = static_cast<int>(actions_batch[i]);
+        target_values[i * dqn_parameters.DQN_OUTPUT_DIM + action_taken] = target_q;
     }
+
 
     // 4. Train the online network
     train_nn(0, DQN_ONLINE_ID, states_batch, target_values, batch_size);
     
-
+    delete[] states_batch;
+    delete[] next_states_batch;
+    delete[] rewards_batch;
+    delete[] dones_batch;
+    delete[] actions_batch;
+    //delete[] online_q_values;
+    delete[] target_values;
 }
 
 void Trainer::rnd_learn_from_batch() {
@@ -266,10 +304,10 @@ void Trainer::rnd_learn_from_batch() {
     double* target_data = new double[rnd_parameters.RND_BATCH_SIZE * rnd_parameters.RND_OUTPUT_DIM];
 
     // Predict using the predictor network
-    predict_nn(0, RND_PREDICTOR_ID, input_data, target_data, rnd_parameters.RND_BATCH_SIZE);
+    predict_nn(0, RND_TARGET_ID, input_data, target_data, rnd_parameters.RND_BATCH_SIZE);
 
     // Train the target network
-    train_nn(0, RND_TARGET_ID, input_data, target_data, rnd_parameters.RND_BATCH_SIZE);
+    train_nn(0, RND_PREDICTOR_ID, input_data, target_data, rnd_parameters.RND_BATCH_SIZE);
 
     delete[] input_data;
     delete[] target_data;
@@ -292,7 +330,7 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
 
     // Update target network periodically
     target_nn_update_counter++;
-    if (target_nn_update_counter % 1000 == 0) {
+    if (target_nn_update_counter % 2000 == 0) {
         update_target_nn(0, 0);
     }
 
@@ -306,7 +344,7 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
         learning_counter++;
     }
 
-    if (m_rnd_counter == 100) {
+    if (m_rnd_counter == 100 && m_rndEnabled) {
         rnd_learn_from_batch();
         m_rnd_counter = 0;
     } else {

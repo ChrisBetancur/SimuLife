@@ -55,6 +55,18 @@ class LayerDense {
         void forward(arma::mat inputs);
 
         void backward(arma::mat dvalues);
+
+        void set_dweights(arma::mat dweights) { m_dweights = dweights; }
+
+        void set_dbiases(arma::mat dbiases) { m_dbiases = dbiases; }
+
+        void set_dinputs(arma::mat dinputs) { m_dinputs = dinputs; }
+
+        arma::mat get_dweights() const { return m_dweights; }
+
+        arma::mat get_dbiases() const { return m_dbiases; }
+
+        arma::mat get_dinputs() const { return m_dinputs; }
 };
 
 #endif // LAYER_DENSE_H

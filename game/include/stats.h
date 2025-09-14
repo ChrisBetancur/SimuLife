@@ -17,8 +17,8 @@ inline constexpr double EMA_ALPHA = 0.1; // A value between 0.0 and 1.0. Lower v
 inline constexpr double beta_init = 5.0;
 inline constexpr double beta_floor = 0.01;
 // You'll need to tune this lambda value. A good starting point is between 2.0 and 5.0.
-inline constexpr double beta_decay_lambda = 1.0;
-inline constexpr std::size_t beta_decay_steps = 10000000000ULL;
+inline constexpr double beta_decay_lambda = 0.1;
+inline constexpr std::size_t beta_decay_steps = 20000000000ULL;
 
 inline double current_beta(int food_count) {
     double frac = std::min(1.0, double(n) / beta_decay_steps);

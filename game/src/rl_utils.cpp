@@ -4,55 +4,6 @@
 
 #include <cmath>
 
-/*class RND_replay_buffer {
-    private:
-        std::vector<std::vector<double>> buffer;
-        size_t capacity;
-        size_t size;
-        std::mt19937 m_gen;
-
-
-    public:
-        RND_replay_buffer(size_t capacity) : capacity(capacity), size(0) {
-            buffer.reserve(capacity);
-            std::random_device rd;
-            m_gen = std::mt19937(rd());
-        }
-
-        void add(double* value) {
-            // convert value to vector
-            std::vector<double> vec(value, value + RND_INPUT_DIM);
-            if (size < capacity) {
-                buffer.push_back(vec);
-                size++;
-            } else {
-                // overwrite the oldest entry
-                buffer[size % capacity] = vec;
-            }
-        }
-
-        double* get_batch(size_t batch_size) {
-            if (batch_size > size) {
-                throw std::runtime_error("Batch size exceeds current buffer size");
-            }
-            double* batch = new double[batch_size * RND_INPUT_DIM];
-            std::uniform_int_distribution<> distrib(0, size - 1);
-            for (size_t i = 0; i < batch_size; ++i) {
-                int random_index = distrib(m_gen);
-                std::copy(buffer[random_index].begin(), buffer[random_index].end(), batch + i * RND_INPUT_DIM);
-            }
-
-            return batch;  // Return the batch of data
-        }
-
-        size_t current_size() const {
-            return size;
-        }
-};
-
-RND_replay_buffer rnd_replay_buffer(1000);
-int rnd_counter = 0;*/
-
 RND_replay_buffer::RND_replay_buffer(size_t capacity, IO_FRONTEND::RND_Params rnd_parameters) 
     : capacity(capacity), size(0), m_rnd_parameters(rnd_parameters) {
     buffer.reserve(capacity);
@@ -146,9 +97,9 @@ double computeExtrinsicReward(State state, Action action, bool hit_wall, int org
     std::tie(foodCount, sawWall, wall_distance) = state.vision;
     
     // SCALED-DOWN extrinsic reward constants (copy/paste)
-    constexpr double WALL_COLLISION_PENALTY      = -2.0;   // was -10
+    constexpr double WALL_COLLISION_PENALTY      = -15.0;   // was -10
     constexpr double FOOD_REWARD                 = 10.0;   // keep modest incentive for food
-    constexpr double SEE_FOOD_REWARD             = 1.0;
+    constexpr double SEE_FOOD_REWARD             = 5.0;   // was 1.0
 
     double reward = 0.0;
 
@@ -159,22 +110,22 @@ double computeExtrinsicReward(State state, Action action, bool hit_wall, int org
         reward += WALL_COLLISION_PENALTY;
     }
 
-    int visibleFood = foodCount;//std::min(foodCount, FOOD_COUNT_CAP);
-    reward += FOOD_REWARD * visibleFood;
+    reward += FOOD_REWARD * foodCount;
 
     if (state.is_eating) {
         reward += FOOD_REWARD; // bonus for eating'
     }
 
-
-    return reward; // try this
+    reward -= 0.1 * (1 - state.energy_lvl);
 
     //reward = std::clamp(reward, -8.0, 8.0); // delete outliers
 
     // scale using tanh_scale(double x, double amplitude, double sensitivity)
-    /*double amplitude = 10.0; // max reward
-    double sensitivity = 4.0; // how quickly the reward saturates
+    /*double amplitude = 15.0; // max reward
+    double sensitivity = 0.5; // how quickly the reward saturates
     return tanh_scale(reward, amplitude, sensitivity);*/
+
+    return reward;
 
 }
 
@@ -198,7 +149,6 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     }
 
     double* input_data = prepareInputData(state, true, food_rates, organism_sector);
-    //rnd_replay_buffer.add(input_data);
 
     double z = computeIntrinsicReward(input_data);
     
@@ -216,10 +166,14 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     constexpr double INTRINSIC_SCALE = 1.0;
     constexpr double INTRINSIC_CLAMP = 30.0;
 
-    double intrinsic_term = beta * (z * INTRINSIC_SCALE);
+    double intrinsic_term = beta * std::max(0.0, z); // we only want positive intrinsic rewards, just because something isn't novel doesn't mean isn't good
     //intrinsic_term = std::clamp(intrinsic_term, -INTRINSIC_CLAMP, INTRINSIC_CLAMP);
 
     double total_reward = extrinsic_reward + intrinsic_term;
+
+    /*constexpr double AMPLITUDE = 2.0; // max reward can be +/- this value
+    constexpr double SENSITIVITY = 1.0; // how quickly the reward saturates
+    total_reward = tanh_scale(total_reward, AMPLITUDE, SENSITIVITY);*/
 
     Logger::getInstance().log(LogType::DEBUG, "Total Reward: " + std::to_string(total_reward) + " (Beta: " + std::to_string(beta) + ")");
 
@@ -259,6 +213,12 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     size_t input_size = dqn_parameters.DQN_INPUT_DIM; // 4 for genome, 1 for energy level, 2 for vision (food count and is_wall), is_eating
     double* input_data = new double[input_size];  // Allocate as a single array
 
+    // verify that state is not null
+    if (&state == nullptr) {
+        std::cerr << "Error: state is null" << std::endl;
+        exit(1);
+    }
+
     // Populate data
     input_data[0] = static_cast<double>(state.genome.gender);
     input_data[1] = static_cast<double>(state.genome.vision_depth);
@@ -269,7 +229,8 @@ double* prepareInputData(State state, bool is_RND, std::vector<double> food_rate
     input_data[5] = static_cast<double>(std::get<0>(state.vision)); // food_count
     input_data[6] = static_cast<double>(std::get<1>(state.vision)); // is_wall
     input_data[7] = static_cast<double>(state.is_eating); // wall_distance
-    
+
+
     return input_data;
     
 }

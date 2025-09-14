@@ -88,6 +88,46 @@ void Optimizer_Adam::update(LayerDense &layer) {
 
     layer.m_biases  -= m_learning_rate * bias_momentums_corrected   /
                        (arma::sqrt(bias_cache_corrected)   + m_eps);
+
+
+    // print check for all values that may cause gradient explosion (nan or inf)
+    if (layer.m_weights.has_nan() || layer.m_weights.has_inf()) {
+        std::cerr << "Error: Weights contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Weights:\n";
+        layer.m_weights.print();
+        exit(1);
+    }
+    if (layer.m_biases.has_nan() || layer.m_biases.has_inf()) {
+        std::cerr << "Error: Biases contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Biases:\n";
+        layer.m_biases.print();
+        exit(1);
+    }
+    if (layer.m_weight_momentums.has_nan() || layer.m_weight_momentums.has_inf()) {
+        std::cerr << "Error: Weight momentums contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Weight momentums:\n";
+        layer.m_weight_momentums.print();
+        exit(1);
+    }
+    if (layer.m_bias_momentums.has_nan() || layer.m_bias_momentums.has_inf()) {
+        std::cerr << "Error: Bias momentums contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Bias momentums:\n";
+        layer.m_bias_momentums.print();
+        exit(1);
+    }
+    if (layer.m_weight_cache.has_nan() || layer.m_weight_cache.has_inf()) {
+        std::cerr << "Error: Weight cache contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Weight cache:\n";
+        layer.m_weight_cache.print();
+        exit(1);
+    }
+    if (layer.m_bias_cache.has_nan() || layer.m_bias_cache.has_inf()) {
+        std::cerr << "Error: Bias cache contain NaN or Inf values after Adam update." << std::endl;
+        std::cerr << "Bias cache:\n";
+        layer.m_bias_cache.print();
+        exit(1);
+    }
+    
 }
 
 void Optimizer_Adam::post_update_params() {

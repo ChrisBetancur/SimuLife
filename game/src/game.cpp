@@ -44,7 +44,7 @@ Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpi
     m_agent = new Agent(m_organism);
     int buf_size;
     IO_FRONTEND::parse_buffer_capacity("../game/rl_system.params", buf_size);
-    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model", buf_size);
+    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model", buf_size, false);
 }
 
 Game::~Game() {
@@ -425,4 +425,6 @@ void Game::showMenu() {
     // Store selected policies and rndEnabled in member variables, if needed
     m_selectedPolicies = policySelected;
     m_rndEnabled = rndEnabled;
+
+    m_trainer->setRNDEnabled(m_rndEnabled);
 }

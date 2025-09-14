@@ -258,6 +258,9 @@ def plot_dqn_diagnostics(episodes, ma_window=50):
                 zorder=10)
 
     # (4) Avg Beta per Episode
+    # go through avg_beta and print if there is any nan or negative numbers
+    if any(np.isnan(avg_beta)) or any(b < 0 for b in avg_beta if np.isfinite(b)):
+        print("Warning: avg_beta contains NaN or negative values.")
     axs[4].plot(episode_nums, avg_beta, marker='o', linestyle='-')
     axs[4].set(title='Avg Beta per Episode', xlabel='Episode', ylabel='Beta')
     t4 = compute_delta_and_slope(avg_beta, episode_nums)
