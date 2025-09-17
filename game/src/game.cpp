@@ -44,7 +44,7 @@ Game::Game() : m_currentState(GameState::MENU), m_totalEpisodes(0), m_currentEpi
     m_agent = new Agent(m_organism);
     int buf_size;
     IO_FRONTEND::parse_buffer_capacity("../game/rl_system.params", buf_size);
-    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "test_model", buf_size, false);
+    m_trainer = new Trainer(m_agent, m_map, 0.9, 0.001, "models/dqn_model", buf_size, false);
 }
 
 Game::~Game() {
@@ -264,11 +264,11 @@ void Game::runEpisodes(int episodes) {
 
         }
 
-        save_nn_model(0, 0, "test_model");
-        // svae rnd predictor model
-        save_nn_model(0, 2, "rnd_models/test_model/predictor");
+        save_nn_model(0, 0, "models/dqn_model");
+        // save rnd predictor model
+        save_nn_model(0, 2, "models/rnd_model/test_model/predictor");
         // save rnd target model
-        save_nn_model(0, 3, "rnd_models/test_model/target");
+        save_nn_model(0, 3, "models/rnd_model/test_model/target");
 
         SDL_SetRenderDrawColor(m_renderer, 255, 255, 255, 255);
         SDL_RenderClear(m_renderer);

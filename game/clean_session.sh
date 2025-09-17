@@ -1,4 +1,3 @@
 rm system.log
-rm -r test_model
-rm -r rnd_models/test_model/*
+rm -r models/*
 rm -r logs

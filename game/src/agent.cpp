@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <logger.h>
 
-#define RND_DIRECTORY "rnd_models"
+#define RND_DIRECTORY "/models/rnd_model"
 
 IO_FRONTEND::RND_Params rnd_parameters;
 IO_FRONTEND::DQN_Params dqn_parameters;

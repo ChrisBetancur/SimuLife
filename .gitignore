@@ -14,3 +14,4 @@ game/bin
 neural_network/bin
 game/system.log
 game/logs/
+game/models/
