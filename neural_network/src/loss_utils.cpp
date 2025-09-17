@@ -38,3 +38,42 @@ double regularization_loss(const LayerDense& layer) {
 
     return loss;
 }
+
+double huber_loss(const arma::mat& predictions, const arma::mat& targets, double delta) {
+    // Calculate the element-wise difference
+    arma::mat diff = predictions - targets;
+    arma::mat abs_diff = arma::abs(diff);
+
+    // Create a boolean mask for the two cases
+    arma::umat small_error_mask = (abs_diff <= delta);
+    arma::umat large_error_mask = (abs_diff > delta);
+
+    // Calculate the loss for each case
+    arma::mat small_loss = 0.5 * arma::square(diff);
+    arma::mat large_loss = delta * (abs_diff - 0.5 * delta);
+
+    // Combine the two parts using the masks
+    arma::mat combined_loss = small_loss % small_error_mask + large_loss % large_error_mask;
+
+    // Return the mean of the combined loss
+    return arma::accu(combined_loss) / (predictions.n_elem);
+}
+
+arma::mat derivative_huber_loss(const arma::mat& predictions, const arma::mat& targets, double delta) {
+    // Calculate the element-wise difference
+    arma::mat diff = predictions - targets;
+    arma::mat abs_diff = arma::abs(diff);
+
+    // Create a boolean mask for the two cases
+    arma::umat small_error_mask = (abs_diff <= delta);
+    arma::umat large_error_mask = (abs_diff > delta);
+
+    // Calculate the derivative for each case
+    arma::mat small_deriv = diff;
+    arma::mat large_deriv = delta * arma::sign(diff);
+
+    // Combine the two parts using the masks
+    arma::mat combined_deriv = small_deriv % small_error_mask + large_deriv % large_error_mask;
+
+    return combined_deriv;
+}

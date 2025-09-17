@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     plot_loss('logs/online_system.log', 'Online Network Loss (Full)', axs[0])
     plot_loss('logs/rnd_predictor_system.log', 'RND Predictor Loss', axs[1])
-    plot_loss('logs/online_system.log', 'Online Network Loss (Zoomed)', axs[2], start_step=10000)
+    plot_loss('logs/online_system.log', 'Online Network Loss (Zoomed)', axs[2], start_step=5000)
 
     plt.tight_layout()
     plt.show()

@@ -226,10 +226,10 @@ class NeuralNetwork {
 
             arma::mat expected_output(target_data, m_layers.back().m_output.n_rows, m_layers.back().m_output.n_cols, true, false);
 
-            double loss = mse_loss(m_layers.back().m_output, expected_output);
+            //double loss = mse_loss(m_layers.back().m_output, expected_output);
 
-            /*const double huber_delta = 1.0;
-            double loss = huber_loss(m_layers.back().m_output, expected_output, huber_delta);*/
+            const double huber_delta = 1.0;
+            double loss = huber_loss(m_layers.back().m_output, expected_output, huber_delta);
 
             if (m_log_file.is_open() && (m_nn_type == 0 || m_nn_type == 2)) {
                 m_log_file << loss << std::endl;
@@ -243,9 +243,9 @@ class NeuralNetwork {
                 m_log_file.flush();
             }
 
-            arma::mat d_loss = derivative_mse_loss(m_layers.back().m_output, expected_output);
-            //arma::mat d_loss = derivative_huber_loss(m_layers.back().m_output, expected_output, huber_delta);
-            
+            //arma::mat d_loss = derivative_mse_loss(m_layers.back().m_output, expected_output);
+            arma::mat d_loss = derivative_huber_loss(m_layers.back().m_output, expected_output, huber_delta);
+
             m_layers.back().backward(d_loss);
             arma::mat d_act;
             

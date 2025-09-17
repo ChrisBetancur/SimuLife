@@ -10,4 +10,8 @@ arma::mat derivative_mse_loss(const arma::mat& acc, const arma::mat& pred);
 
 double regularization_loss(const LayerDense& layer);
 
+double huber_loss(const arma::mat& predictions, const arma::mat& targets, double delta);
+
+arma::mat derivative_huber_loss(const arma::mat& predictions, const arma::mat& targets, double delta);
+
 #endif

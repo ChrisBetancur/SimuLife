@@ -1,8 +1,8 @@
 BoltzmannPolicy_specs {
-    initial_temp = 1.0; 
-    decay_rate = 0.995;
-    min_temp = 0.1;
-    decay_interval = 2;
+    initial_temp = 2.0; 
+    decay_rate = 0.99999;
+    min_temp = 0.5;
+    decay_interval = 3;
 }
 
 DQN_req_specs {

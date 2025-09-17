@@ -219,61 +219,17 @@ void Trainer::learn_from_batch() {
     }
     
 
-    // 3. Prepare the target values
-    /*double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);*/
+    double* q_next_target = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
+    predict_nn(0, DQN_TARGET_ID, next_states_batch, q_next_target, batch_size);
 
-    /*double* online_q_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_ONLINE_ID, states_batch, online_q_values, batch_size);
-
-    double* target_values_next_state = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values_next_state, batch_size);
-
+    // --- CHANGED: get Q(s, ·) from ONLINE as the base we will edit in-place
     double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    std::copy(online_q_values, online_q_values + batch_size * dqn_parameters.DQN_OUTPUT_DIM, target_values);
-
-    for (int i = 0; i < batch_size; ++i) {
-        double max_next_q = *std::max_element(target_values_next_state + i * dqn_parameters.DQN_OUTPUT_DIM, target_values_next_state + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
-            
-        double target_q = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
-            
-
-        target_values[i * dqn_parameters.DQN_OUTPUT_DIM + static_cast<int>(actions_batch[i])] = target_q;
-    }*/
-
-    /*double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);
-
-    double* online_q_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_ONLINE_ID, states_batch, online_q_values, batch_size);
-
-    // print q values
-    for (int i = 0; i < batch_size; ++i) {
-        std::cout << "State " << i << " Q-values: ";
-        for (int j = 0; j < dqn_parameters.DQN_OUTPUT_DIM; ++j) {
-            std::cout << online_q_values[i * dqn_parameters.DQN_OUTPUT_DIM + j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    for (int i = 0; i < batch_size; ++i) {
-        double max_next_q = *std::max_element(target_values + i * dqn_parameters.DQN_OUTPUT_DIM, target_values + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
-        for (int j = 0; j < dqn_parameters.DQN_OUTPUT_DIM; ++j) {
-            if (j == static_cast<int>(actions_batch[i])) {
-                target_values[i * dqn_parameters.DQN_OUTPUT_DIM + j] = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
-            } else {
-                target_values[i * dqn_parameters.DQN_OUTPUT_DIM + j] = online_q_values[i * dqn_parameters.DQN_OUTPUT_DIM + j];
-            }
-        }
-    }*/
-
-    double* target_values = new double[batch_size * dqn_parameters.DQN_OUTPUT_DIM];
-    predict_nn(0, DQN_TARGET_ID, next_states_batch, target_values, batch_size);
+    predict_nn(0, DQN_ONLINE_ID, states_batch, target_values, batch_size);
 
     // 4. Perform the Bellman update on the target values
     for (int i = 0; i < batch_size; ++i) {
-        double max_next_q = *std::max_element(target_values + i * dqn_parameters.DQN_OUTPUT_DIM, target_values + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
-        
+        double max_next_q = *std::max_element(q_next_target + i * dqn_parameters.DQN_OUTPUT_DIM, q_next_target + (i + 1) * dqn_parameters.DQN_OUTPUT_DIM);
+
         // This is the new target value for the action that was taken
         double target_q = rewards_batch[i] + (1.0 - dones_batch[i]) * m_discount_factor * max_next_q;
         
@@ -292,6 +248,7 @@ void Trainer::learn_from_batch() {
     delete[] dones_batch;
     delete[] actions_batch;
     //delete[] online_q_values;
+    delete[] q_next_target;
     delete[] target_values;
 }
 
@@ -336,7 +293,7 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
 
     // Periodically learn from a batch
     if (learning_counter == 4) {
-        if (replay_buffer.size() > batch_size) {
+        if (replay_buffer.size() > dqn_parameters.DQN_BATCH_SIZE) {
             learn_from_batch();
             learning_counter = 0;
         }
@@ -345,7 +302,9 @@ void Trainer::learn(State state, State prevState, Action action, double reward, 
     }
 
     if (m_rnd_counter == 100 && m_rndEnabled) {
-        rnd_learn_from_batch();
+        if (m_rnd_replay_buffer.current_size() > rnd_parameters.RND_BATCH_SIZE) {
+            rnd_learn_from_batch();
+        }
         m_rnd_counter = 0;
     } else {
         m_rnd_counter++;

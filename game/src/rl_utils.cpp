@@ -121,11 +121,16 @@ double computeExtrinsicReward(State state, Action action, bool hit_wall, int org
     //reward = std::clamp(reward, -8.0, 8.0); // delete outliers
 
     // scale using tanh_scale(double x, double amplitude, double sensitivity)
-    /*double amplitude = 15.0; // max reward
-    double sensitivity = 0.5; // how quickly the reward saturates
+    /*double amplitude = 30.0; // max reward
+    double sensitivity = 1.0; // how quickly the reward saturates
     return tanh_scale(reward, amplitude, sensitivity);*/
 
-    return reward;
+    // clamp reward to be between -15 and 15
+    
+    constexpr double REWARD_CAP = 20.0; 
+    return std::clamp(reward, -REWARD_CAP, REWARD_CAP);
+
+    //return reward;
 
 }
 
@@ -167,12 +172,12 @@ double computeReward(State state, Action action, std::vector<double> food_rates,
     constexpr double INTRINSIC_CLAMP = 30.0;
 
     double intrinsic_term = beta * std::max(0.0, z); // we only want positive intrinsic rewards, just because something isn't novel doesn't mean isn't good
-    //intrinsic_term = std::clamp(intrinsic_term, -INTRINSIC_CLAMP, INTRINSIC_CLAMP);
+    //intrinsic_term = std::clamp(intrinsic_term, 0.0, INTRINSIC_CLAMP);
 
     double total_reward = extrinsic_reward + intrinsic_term;
 
-    /*constexpr double AMPLITUDE = 2.0; // max reward can be +/- this value
-    constexpr double SENSITIVITY = 1.0; // how quickly the reward saturates
+    /*constexpr double AMPLITUDE = 5.0; // max reward can be +/- this value
+    constexpr double SENSITIVITY = 2.0; // how quickly the reward saturates
     total_reward = tanh_scale(total_reward, AMPLITUDE, SENSITIVITY);*/
 
     Logger::getInstance().log(LogType::DEBUG, "Total Reward: " + std::to_string(total_reward) + " (Beta: " + std::to_string(beta) + ")");
