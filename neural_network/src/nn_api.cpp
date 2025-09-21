@@ -266,35 +266,11 @@ class NeuralNetwork {
                 optimizer.update(m_layers[i]);
             }
 
-            if (m_log_file.is_open() && (m_nn_type == 0 || m_nn_type == 2)) {
+            /*if (m_log_file.is_open() && (m_nn_type == 0 || m_nn_type == 2)) {
                 m_log_file << loss << std::endl;
                 m_log_file.flush();
-            }
+            }*/
 
-            // if nn_type is 0 write hello to log file
-            if (m_log_file.is_open() && m_log_file.good()) {
-                // If nn_type is 0 (online) or 2 (RND predictor) log the loss
-                m_log_file << std::setprecision(5) << loss << std::endl;
-                m_log_file.flush();
-            }
-
-            //arma::mat d_loss = derivative_mse_loss(m_layers.back().m_output, expected_output);
-            arma::mat d_loss = derivative_huber_loss(m_layers.back().m_output, expected_output, huber_delta);
-
-            m_layers.back().backward(d_loss);
-            arma::mat d_act;
-            
-            for (int i = m_layers.size() - 2; i >= 0; --i) {
-                d_act = m_activations[i].backward(m_layers[i + 1].m_dinputs);
-                m_layers[i].backward(d_act);
-            }
-
-            // Update weights and biases
-            optimizer.pre_update_params();
-            for (int i = 0; i < m_layers.size(); ++i) {
-                optimizer.update(m_layers[i]);
-            }
-             /// REGULARILIZER?????????
         }
 
         bool save_model(const std::string& dirname) {
